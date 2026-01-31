@@ -3,6 +3,7 @@
 export interface ListItem {
   title: string;
   href: string;
+  image?: string;
 }
 
 export interface ListPageData {
@@ -35,13 +36,20 @@ export function renderListPage(data: ListPageData): string {
     >
   ` : '';
 
-  const itemsHTML = data.items.map(item => `
-    <li class="boring-list-item">
-      <a href="${escapeHtml(item.href)}" class="boring-list-link">
-        ${escapeHtml(item.title)}
-      </a>
-    </li>
-  `).join('');
+  const itemsHTML = data.items.map(item => {
+    const imageHTML = item.image ? `
+      <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="boring-list-image">
+    ` : '';
+
+    return `
+      <li class="boring-list-item">
+        <a href="${escapeHtml(item.href)}" class="boring-list-link">
+          ${imageHTML}
+          <span class="boring-list-title">${escapeHtml(item.title)}</span>
+        </a>
+      </li>
+    `;
+  }).join('');
 
   return `
     <div class="boring-container">

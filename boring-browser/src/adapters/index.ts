@@ -5,6 +5,7 @@ import { extractGenericArticle } from './articleGeneric';
 import { extractBBCList } from './bbc';
 import { extractYouTubeList, extractYouTubeWatch } from './youtube';
 import { extractGoogleSearch } from './google';
+import { extractASOSProducts } from './asos';
 import {
   renderArticlePage,
   renderListPage,
@@ -34,6 +35,11 @@ export function runTransform(url: string, doc: Document): string {
 
       case PageMode.GOOGLE_SEARCH: {
         const data = extractGoogleSearch(doc, url);
+        return renderListPage(data);
+      }
+
+      case PageMode.ASOS_PRODUCTS: {
+        const data = extractASOSProducts(doc, url);
         return renderListPage(data);
       }
 

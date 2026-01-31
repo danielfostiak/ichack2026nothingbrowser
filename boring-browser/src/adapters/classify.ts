@@ -5,6 +5,7 @@ export enum PageMode {
   YOUTUBE_LIST = 'YOUTUBE_LIST',
   BBC_HOME_LIST = 'BBC_HOME_LIST',
   GOOGLE_SEARCH = 'GOOGLE_SEARCH',
+  ASOS_PRODUCTS = 'ASOS_PRODUCTS',
   ARTICLE_GENERIC = 'ARTICLE_GENERIC',
   FALLBACK = 'FALLBACK'
 }
@@ -38,6 +39,12 @@ export function classifyPage(url: string, doc: Document): PageMode {
     if (pathname.includes('/news/') && pathname.split('/').length > 3) {
       return PageMode.ARTICLE_GENERIC;
     }
+  }
+
+  // ASOS classification
+  if (hostname.includes('asos.com')) {
+    // ASOS product listings and category pages
+    return PageMode.ASOS_PRODUCTS;
   }
 
   // Generic article detection
