@@ -1,0 +1,271 @@
+/* Boring Browser - Minimal UI Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background: #0b0b0c;
+  color: #e8e8e8;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  background: #0b0b0c;
+  color: #e8e8e8;
+  padding: 0;
+  margin: 0;
+}
+
+.boring-container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.boring-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #2a2a2c;
+}
+
+.boring-back-btn {
+  background: #1a1a1c;
+  border: 1px solid #2a2a2c;
+  color: #e8e8e8;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: none;
+  display: inline-block;
+  transition: background 0.2s;
+}
+
+.boring-back-btn:hover {
+  background: #2a2a2c;
+}
+
+.boring-mode-label {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.boring-title {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.boring-byline {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 24px;
+}
+
+.boring-content {
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.boring-content p {
+  margin-bottom: 20px;
+}
+
+.boring-content h1,
+.boring-content h2,
+.boring-content h3 {
+  margin-top: 32px;
+  margin-bottom: 16px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.boring-content h1 { font-size: 28px; }
+.boring-content h2 { font-size: 24px; }
+.boring-content h3 { font-size: 20px; }
+
+.boring-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 24px 0;
+  border-radius: 8px;
+}
+
+.boring-content a {
+  color: #4a9eff;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.boring-content a:hover {
+  border-bottom-color: #4a9eff;
+}
+
+.boring-content ul,
+.boring-content ol {
+  margin-left: 24px;
+  margin-bottom: 20px;
+}
+
+.boring-content li {
+  margin-bottom: 8px;
+}
+
+.boring-content blockquote {
+  border-left: 3px solid #2a2a2c;
+  padding-left: 20px;
+  margin: 24px 0;
+  color: #aaa;
+  font-style: italic;
+}
+
+.boring-content pre {
+  background: #1a1a1c;
+  border: 1px solid #2a2a2c;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 20px 0;
+}
+
+.boring-content code {
+  background: #1a1a1c;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 15px;
+}
+
+.boring-content pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* List view styles */
+.boring-list {
+  list-style: none;
+}
+
+.boring-list-item {
+  margin-bottom: 8px;
+}
+
+.boring-list-link {
+  display: block;
+  padding: 16px 20px;
+  background: #1a1a1c;
+  border: 1px solid #2a2a2c;
+  border-radius: 8px;
+  color: #e8e8e8;
+  text-decoration: none;
+  transition: all 0.2s;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.boring-list-link:hover {
+  background: #2a2a2c;
+  border-color: #3a3a3c;
+  transform: translateX(4px);
+}
+
+/* Video player styles */
+.boring-video-container {
+  margin-bottom: 24px;
+}
+
+.boring-video-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.boring-player-wrapper {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Search box */
+.boring-search {
+  width: 100%;
+  padding: 12px 16px;
+  background: #1a1a1c;
+  border: 1px solid #2a2a2c;
+  border-radius: 8px;
+  color: #e8e8e8;
+  font-size: 16px;
+  margin-bottom: 24px;
+  outline: none;
+}
+
+.boring-search:focus {
+  border-color: #4a9eff;
+}
+
+.boring-search-btn {
+  background: #4a9eff;
+  border: none;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.boring-search-btn:hover {
+  background: #3a8eef;
+}
+
+/* Fallback message */
+.boring-fallback {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.boring-fallback h2 {
+  font-size: 24px;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.boring-fallback p {
+  color: #888;
+  margin-bottom: 24px;
+}
+
+/* Loading overlay */
+.boring-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #0b0b0c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+}
+
+.boring-loading-text {
+  color: #666;
+  font-size: 14px;
+}
