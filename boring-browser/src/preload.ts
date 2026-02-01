@@ -138,7 +138,7 @@
             position: fixed;
             bottom: 10px;
             right: 10px;
-            background: #007acc;
+            background: #2a2a2c;
             color: white;
             padding: 8px 12px;
             border-radius: 4px;
@@ -274,7 +274,7 @@
             margin-bottom: 24px;
             outline: none;
           }
-          .boring-search:focus { border-color: #4a9eff; }
+          .boring-search:focus { border-color: #3a3a3c; }
           .boring-list { list-style: none; }
           .boring-list-item { margin-bottom: 8px; }
           .boring-list-link {
@@ -298,7 +298,7 @@
             position: fixed;
             bottom: 10px;
             right: 10px;
-            background: #007acc;
+            background: #2a2a2c;
             color: white;
             padding: 8px 12px;
             border-radius: 4px;
@@ -442,6 +442,10 @@ console.log('[Boring Browser] Preload script loaded (veil already applied)!');
 let hasTransformed = false;
 let lastUrl = location.href;
 
+function isTemplateSite(hostname: string): boolean {
+  return hostname.includes('amazon.co.uk') || hostname.includes('amazon.com');
+}
+
 // Main transformation function
 async function performTransformation() {
   console.log('[Boring Browser] performTransformation called for:', location.href);
@@ -468,6 +472,11 @@ async function performTransformation() {
     // Check if minimal mode is enabled
     const minimalMode = await ipcRenderer.invoke(IPC_CHANNELS.GET_MINIMAL_MODE);
     console.log('[Boring Browser] Minimal mode enabled:', minimalMode);
+
+    if (minimalMode && isTemplateSite(location.hostname)) {
+      console.log('[Boring Browser] Template site detected, skipping DOM transform');
+      return;
+    }
 
     if (!minimalMode) {
       // Minimal mode disabled - show original page
@@ -540,7 +549,7 @@ async function performTransformation() {
   </head>
   <body>
     ${transformedHTML}
-    <div style="position: fixed; bottom: 10px; right: 10px; background: #007acc; color: white; padding: 8px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; z-index: 999999;">
+    <div style="position: fixed; bottom: 10px; right: 10px; background: #2a2a2c; color: white; padding: 8px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; z-index: 999999;">
       ✓ Minimal Mode Active
     </div>
   </body>
@@ -754,7 +763,7 @@ function getEmbeddedStyles(): string {
       margin-bottom: 24px;
       outline: none;
     }
-    .boring-search:focus { border-color: #4a9eff; }
+    .boring-search:focus { border-color: #3a3a3c; }
     .boring-player-wrapper {
       position: relative;
       width: 100%;
@@ -781,4 +790,13 @@ if (document.readyState === 'loading') {
 (window as any).boringBrowser = {
   getMinimalMode: () => ipcRenderer.invoke(IPC_CHANNELS.GET_MINIMAL_MODE),
   log: (...args: any[]) => ipcRenderer.send(IPC_CHANNELS.LOG, ...args)
+};
+
+(window as any).boringAPI = {
+  onData: (fn: (payload: any) => void) => ipcRenderer.on('boring:data', (_event, payload) => fn(payload)),
+  checkout: (items: Array<{ asin: string; url?: string }>) => ipcRenderer.send('boring:checkout', items),
+  navigate: (url: string) => {
+    if (url === 'back') ipcRenderer.send('nav-back');
+    else ipcRenderer.send('nav-to', url);
+  }
 };

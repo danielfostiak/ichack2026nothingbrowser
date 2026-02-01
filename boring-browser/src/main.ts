@@ -1,12 +1,68 @@
 import { app, BrowserWindow, BrowserView, ipcMain } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { IPC_CHANNELS } from './ipc';
 
 let mainWindow: BrowserWindow | null = null;
 let browserView: BrowserView | null = null;
 let minimalModeEnabled = true;
+let lastRealUrl: string | null = null;
+
+type ScrapingState =
+  | null
+  | { phase: 'scraping'; module: string }
+  | { phase: 'template'; module: string; data: any };
+
+let scrapingState: ScrapingState = null;
+let checkoutInProgress = false;
+let hidePage = false;
+
+const BORING_MODULES_DIR = path.join(__dirname, 'boring-modules');
 
 const CHROME_HEIGHT = 60;
+
+function getSiteModule(hostname: string): string | null {
+  if (hostname.includes('amazon.co.uk') || hostname.includes('amazon.com')) return 'amazon';
+  return null;
+}
+
+function hasTemplate(siteModule: string): boolean {
+  return fs.existsSync(path.join(BORING_MODULES_DIR, siteModule, 'template.html'));
+}
+
+function setBrowserViewHidden(hidden: boolean) {
+  if (!mainWindow || !browserView) return;
+  hidePage = hidden;
+  if (hidden) {
+    browserView.setBounds({
+      x: 0,
+      y: CHROME_HEIGHT,
+      width: 0,
+      height: 0
+    });
+  } else {
+    updateBrowserViewBounds();
+  }
+}
+
+function maybeStartTemplateFlow(url: string): boolean {
+  if (!browserView || checkoutInProgress) return false;
+  try {
+    const hostname = new URL(url).hostname;
+    const siteModule = getSiteModule(hostname);
+    if (minimalModeEnabled && siteModule && hasTemplate(siteModule)) {
+      scrapingState = { phase: 'scraping', module: siteModule };
+      setBrowserViewHidden(true);
+      return true;
+    }
+  } catch {
+    // Ignore invalid URLs
+  }
+
+  scrapingState = null;
+  setBrowserViewHidden(false);
+  return false;
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -52,8 +108,8 @@ function createWindow() {
         button:hover { background: #3a3a3c; }
         button:active { background: #252527; }
         button.active {
-          background: #007acc;
-          border-color: #007acc;
+          background: #3a3a3c;
+          border-color: #3a3a3c;
         }
         input {
           -webkit-app-region: no-drag;
@@ -66,7 +122,7 @@ function createWindow() {
           font-size: 13px;
           outline: none;
         }
-        input:focus { border-color: #007acc; }
+        input:focus { border-color: #3a3a3c; }
         .nav-group { display: flex; gap: 4px; }
       </style>
     </head>
@@ -179,30 +235,181 @@ function createWindow() {
 
   ipcMain.on('nav-to', (event, url: string) => {
     if (browserView) {
+      maybeStartTemplateFlow(url);
       browserView.webContents.loadURL(url);
     }
+  });
+
+  ipcMain.on('boring:checkout', async (_event, items: Array<{ asin: string; url?: string }>) => {
+    if (!browserView || !items || items.length === 0) return;
+
+    const origin = items[0].url ? new URL(items[0].url).origin : 'https://www.amazon.co.uk';
+
+    checkoutInProgress = true;
+    scrapingState = null;
+    setBrowserViewHidden(true);
+
+    for (const item of items) {
+      try {
+        const dpUrl = item.url || origin + '/dp/' + item.asin;
+        browserView.webContents.loadURL(dpUrl);
+        await new Promise((resolve) => browserView?.webContents.once('did-finish-load', resolve));
+
+        await browserView.webContents.executeJavaScript(`
+          (function() {
+            return new Promise(function(resolve) {
+              var deadline = Date.now() + 10000;
+              function findAddToCart() {
+                var form = document.getElementById('add-to-cart-form');
+                var btn = document.getElementById('add-to-cart') ||
+                          document.getElementById('add-to-cart-button') ||
+                          document.querySelector('#add-to-cart-button-ubb') ||
+                          document.querySelector('input#add-to-cart-button, input#add-to-cart-button-ubb') ||
+                          document.querySelector('button#add-to-cart-button, button#add-to-cart-button-ubb') ||
+                          document.querySelector('input[name="submit.add-to-cart"], button[name="submit.add-to-cart"]');
+                return { form: form, btn: btn };
+              }
+              (function tick() {
+                var found = findAddToCart();
+                if ((found.form || found.btn) || Date.now() >= deadline) resolve();
+                else setTimeout(tick, 250);
+              })();
+            });
+          })()
+        `);
+
+        const asin = item.asin;
+        await browserView.webContents.executeJavaScript(`
+          (async function() {
+            function findAddToCart() {
+              var form = document.getElementById('add-to-cart-form');
+              var btn = document.getElementById('add-to-cart') ||
+                        document.getElementById('add-to-cart-button') ||
+                        document.querySelector('#add-to-cart-button-ubb') ||
+                        document.querySelector('input#add-to-cart-button, input#add-to-cart-button-ubb') ||
+                        document.querySelector('button#add-to-cart-button, button#add-to-cart-button-ubb') ||
+                        document.querySelector('input[name="submit.add-to-cart"], button[name="submit.add-to-cart"]');
+              return { form: form, btn: btn };
+            }
+
+            var found = findAddToCart();
+            var form = found.form;
+            var btn = found.btn;
+
+            if (form) {
+              var params = new URLSearchParams();
+              form.querySelectorAll('input[name], select[name], textarea[name]').forEach(function(el) {
+                if (el.type === 'checkbox' && !el.checked) return;
+                if (el.type === 'radio' && !el.checked) return;
+                params.append(el.name, el.value || '');
+              });
+              if (!params.has('ASIN')) params.set('ASIN', '${asin}');
+              if (!params.has('quantity')) params.set('quantity', '1');
+
+              var action = form.getAttribute('action') || '/gp/buy/shared/ajax/addToCart';
+              await fetch(action, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+              });
+              return 'form-submitted';
+            }
+
+            if (btn) {
+              btn.click();
+              return 'button-clicked';
+            }
+
+            return 'not-found';
+          })()
+        `);
+
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      } catch (error) {
+        console.error('[Checkout] Failed for ASIN:', item.asin, error);
+      }
+    }
+
+    checkoutInProgress = false;
+    scrapingState = { phase: 'scraping', module: 'amazon' };
+    browserView.webContents.loadURL(origin + '/cart');
   });
 
   ipcMain.on('toggle-minimal', () => {
     minimalModeEnabled = !minimalModeEnabled;
     mainWindow?.webContents.send('minimal-mode-changed', minimalModeEnabled);
     if (browserView) {
+      if (!minimalModeEnabled) {
+        scrapingState = null;
+        setBrowserViewHidden(false);
+        if (lastRealUrl) {
+          browserView.webContents.loadURL(lastRealUrl);
+          return;
+        }
+      } else {
+        const currentUrl = browserView.webContents.getURL();
+        if (currentUrl) {
+          maybeStartTemplateFlow(currentUrl);
+        }
+      }
       browserView.webContents.reload();
     }
   });
 
   // Track URL changes
   if (browserView) {
+    browserView.webContents.on('will-navigate', (_event, url) => {
+      if (checkoutInProgress) return;
+      maybeStartTemplateFlow(url);
+    });
+
     browserView.webContents.on('did-navigate', (event, url) => {
-      // Hide file:// URLs (homepage) - show empty URL bar instead
+      if (url.startsWith('http')) {
+        lastRealUrl = url;
+      }
+      // Hide file:// URLs (homepage, templates) - show empty URL bar instead
       const displayUrl = url.startsWith('file://') ? '' : url;
       mainWindow?.webContents.send('url-changed', displayUrl);
     });
 
     browserView.webContents.on('did-navigate-in-page', (event, url) => {
-      // Hide file:// URLs (homepage) - show empty URL bar instead
+      if (url.startsWith('http')) {
+        lastRealUrl = url;
+      }
       const displayUrl = url.startsWith('file://') ? '' : url;
       mainWindow?.webContents.send('url-changed', displayUrl);
+    });
+
+    browserView.webContents.on('did-finish-load', async () => {
+      if (!browserView) return;
+      if (checkoutInProgress) return;
+
+      if (scrapingState && scrapingState.phase === 'scraping') {
+        const mod = scrapingState.module;
+        try {
+          const jsPath = path.join(BORING_MODULES_DIR, mod, 'inject.js');
+          const code = fs.readFileSync(jsPath, 'utf8');
+          const data = await browserView.webContents.executeJavaScript(code);
+          scrapingState = { phase: 'template', module: mod, data };
+          setBrowserViewHidden(false);
+          browserView.webContents.loadFile(
+            path.join(BORING_MODULES_DIR, mod, 'template.html')
+          );
+        } catch (error) {
+          console.error('[Boring Mode] Extraction failed:', error);
+          scrapingState = null;
+          setBrowserViewHidden(false);
+        }
+        return;
+      }
+
+      if (scrapingState && scrapingState.phase === 'template') {
+        const payload = scrapingState.data || { type: 'homepage', origin: lastRealUrl || '' };
+        browserView.webContents.send('boring:data', payload);
+        scrapingState = null;
+        setBrowserViewHidden(false);
+      }
     });
   }
 
@@ -245,6 +452,15 @@ function createWindow() {
 function updateBrowserViewBounds() {
   if (mainWindow && browserView) {
     const bounds = mainWindow.getBounds();
+    if (hidePage) {
+      browserView.setBounds({
+        x: 0,
+        y: CHROME_HEIGHT,
+        width: 0,
+        height: 0
+      });
+      return;
+    }
     browserView.setBounds({
       x: 0,
       y: CHROME_HEIGHT,

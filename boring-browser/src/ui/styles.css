@@ -103,14 +103,14 @@ body {
 }
 
 .boring-content a {
-  color: #4a9eff;
+  color: #cfcfcf;
   text-decoration: none;
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s;
 }
 
 .boring-content a:hover {
-  border-bottom-color: #4a9eff;
+  border-bottom-color: #cfcfcf;
 }
 
 .boring-content ul,
@@ -215,11 +215,11 @@ body {
 }
 
 .boring-search:focus {
-  border-color: #4a9eff;
+  border-color: #3a3a3c;
 }
 
 .boring-search-btn {
-  background: #4a9eff;
+  background: #2a2a2c;
   border: none;
   color: #fff;
   padding: 12px 24px;
@@ -231,7 +231,7 @@ body {
 }
 
 .boring-search-btn:hover {
-  background: #3a8eef;
+  background: #3a3a3c;
 }
 
 /* Fallback message */

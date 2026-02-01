@@ -2,6 +2,21 @@ const esbuild = require('esbuild');
 const fs = require('fs');
 const path = require('path');
 
+function copyDir(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(destDir, { recursive: true });
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 // Build TypeScript files
 esbuild.build({
   entryPoints: ['src/main.ts', 'src/preload.ts'],
@@ -30,6 +45,12 @@ esbuild.build({
   const distHtml = path.join(__dirname, 'dist/homepage.html');
   fs.copyFileSync(srcHtml, distHtml);
   console.log('✓ Homepage HTML copied');
+
+  // Copy Amazon boring-modules (templates + injectors)
+  const srcModules = path.join(__dirname, 'src/amazon/ICHack2026/boring-modules');
+  const distModules = path.join(__dirname, 'dist/boring-modules');
+  copyDir(srcModules, distModules);
+  console.log('✓ Boring modules copied');
 
   // Copy videoplayback.mp4
   const srcVideo = path.join(__dirname, 'assets/videoplayback.mp4');
