@@ -124,11 +124,7 @@ export function renderVideoPage(data: VideoPageData): string {
     <div class="boring-container boring-video-only">
       <div class="boring-header">
         <button class="boring-back-btn" data-action="back">← Back</button>
-        <div class="boring-header-actions">
-          <span class="boring-mode-label">${data.modeLabel || 'Video'}</span>
-          <button class="boring-action-btn" data-action="theater">Theater</button>
-          <button class="boring-action-btn" data-action="fullscreen">Fullscreen</button>
-        </div>
+        <span class="boring-mode-label">${data.modeLabel || 'Video'}</span>
       </div>
       <div class="boring-player-wrapper">
         ${data.playerHTML}

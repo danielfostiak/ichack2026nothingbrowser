@@ -137,22 +137,14 @@ async function performTransformation() {
     }
 
     if (fastPath === 'youtube-watch') {
-      const waitForYouTubePlayer = async (timeoutMs = 4000, intervalMs = 50) => {
-        const start = Date.now();
-        const selectors = ['#movie_player', 'ytd-player', '#player'];
-        while (Date.now() - start < timeoutMs) {
-          for (const selector of selectors) {
-            const el = document.querySelector(selector) as HTMLElement | null;
-            if (el && el.querySelector('video')) {
-              return el;
-            }
-          }
-          await new Promise(resolve => setTimeout(resolve, intervalMs));
+      const selectors = ['#movie_player', 'ytd-player', '#player'];
+      for (const selector of selectors) {
+        const el = document.querySelector(selector) as HTMLElement | null;
+        if (el && el.querySelector('video')) {
+          youtubePlayer = el;
+          break;
         }
-        return null;
-      };
-
-      youtubePlayer = await waitForYouTubePlayer();
+      }
       (window as any).__boringYouTubePlayer = youtubePlayer;
       console.log('[Boring Browser] YouTube player found:', !!youtubePlayer);
     } else {
@@ -160,7 +152,7 @@ async function performTransformation() {
     }
 
     if (fastPath === 'youtube-list') {
-      const waitForYouTubeData = async (timeoutMs = 2000, intervalMs = 50) => {
+      const waitForYouTubeData = async (timeoutMs = 3500, intervalMs = 50) => {
         const start = Date.now();
         while (Date.now() - start < timeoutMs) {
           const win = document.defaultView as any;
@@ -177,11 +169,15 @@ async function performTransformation() {
 
       const hasData = await waitForYouTubeData();
       console.log('[Boring Browser] YouTube initial data available:', hasData);
-      try {
-        // Stop further loading once we have enough data to render.
-        window.stop();
-      } catch (e) {
-        console.warn('[Boring Browser] Failed to stop YouTube load after data:', e);
+      if (hasData) {
+        try {
+          // Stop further loading once we have enough data to render.
+          window.stop();
+        } catch (e) {
+          console.warn('[Boring Browser] Failed to stop YouTube load after data:', e);
+        }
+      } else {
+        console.log('[Boring Browser] YouTube data not ready yet; skipping window.stop()');
       }
     }
 
@@ -202,14 +198,11 @@ async function performTransformation() {
       cssContent = getEmbeddedStyles();
     }
 
+    const isYouTubeWatch = fastPath === 'youtube-watch';
+
     // Replace entire document (adapter/template-driven, single path for all sites)
     console.log('[Boring Browser] Replacing document HTML...');
     try {
-      const badgeHTML = `
-    <div style="position: fixed; bottom: 10px; right: 10px; background: #007acc; color: white; padding: 8px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; z-index: 999999;">
-      ✓ Minimal Mode Active
-    </div>`;
-
       const headMarkup = `
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -251,10 +244,15 @@ async function performTransformation() {
         el.style.setProperty('mix-blend-mode', 'normal', 'important');
       };
 
-      const forcePlayerVisible = (player: HTMLElement | null) => {
+      const forcePlayerVisible = (
+        player: HTMLElement | null,
+        options: { preservePosition?: boolean } = {}
+      ) => {
         if (!player) return;
-        player.style.setProperty('position', 'absolute', 'important');
-        player.style.setProperty('inset', '0', 'important');
+        if (!options.preservePosition) {
+          player.style.setProperty('position', 'absolute', 'important');
+          player.style.setProperty('inset', '0', 'important');
+        }
         player.style.setProperty('width', '100%', 'important');
         player.style.setProperty('height', '100%', 'important');
         player.style.setProperty('visibility', 'visible', 'important');
@@ -300,7 +298,7 @@ async function performTransformation() {
           html.appendChild(body);
 
           head.innerHTML = headMarkup;
-          body.innerHTML = `${transformedHTML}${badgeHTML}`;
+          body.innerHTML = `${transformedHTML}`;
         } else {
           if (!head) {
             head = document.createElement('head');
@@ -334,7 +332,7 @@ async function performTransformation() {
             preservedPlayer.parentNode.removeChild(preservedPlayer);
           }
 
-          body.innerHTML = `${transformedHTML}${badgeHTML}`;
+          body.innerHTML = `${transformedHTML}`;
 
           const slot = body.querySelector('#boring-player-slot') as HTMLElement | null;
           if (slot) {
@@ -383,7 +381,187 @@ async function performTransformation() {
         forceVisible(body);
       };
 
-      applyTemplateToDocument();
+      const applyYouTubeWatchMinimal = () => {
+        const html = document.documentElement;
+        const body = document.body;
+        const head = document.head;
+        if (!html || !body || !head) return;
+
+        body.classList.add('boring-youtube-watch');
+
+        const styleId = 'boring-youtube-watch-style';
+        let style = document.getElementById(styleId) as HTMLStyleElement | null;
+        if (!style) {
+          style = document.createElement('style');
+          style.id = styleId;
+          head.appendChild(style);
+        }
+        style.textContent = `
+          html, body {
+            opacity: 1 !important;
+            visibility: visible !important;
+          }
+          body.boring-youtube-watch {
+            margin: 0 !important;
+            background: #0b0b0c !important;
+            color: #e8e8e8 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+          }
+          ytd-masthead, #masthead-container, #related, #secondary, #comments, ytd-comments, #info, #below {
+            display: none !important;
+          }
+          ytd-watch-flexy {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          #primary {
+            width: 100% !important;
+            max-width: none !important;
+          }
+          #player,
+          #player-container-outer,
+          #player-container-inner,
+          #movie_player,
+          .html5-video-container,
+          #movie_player video {
+            width: 100% !important;
+            max-width: 100% !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+          }
+          #player {
+            position: relative !important;
+            aspect-ratio: 16 / 9;
+            min-height: 240px;
+          }
+          #movie_player,
+          .html5-video-container,
+          #movie_player video {
+            height: 100% !important;
+          }
+          #boring-youtube-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            background: rgba(11, 11, 12, 0.9);
+            border-bottom: 1px solid #2a2a2c;
+            z-index: 999999;
+            pointer-events: none;
+          }
+          #boring-youtube-overlay .boring-back-btn {
+            pointer-events: auto;
+          }
+          #boring-youtube-overlay .boring-mode-label {
+            pointer-events: auto;
+          }
+          .boring-back-btn {
+            background: #1a1a1c !important;
+            border: 1px solid #2a2a2c !important;
+            color: #e8e8e8 !important;
+            padding: 8px 16px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            text-decoration: none !important;
+            transition: background 0.2s ease !important;
+          }
+          .boring-back-btn:hover {
+            background: #2a2a2c !important;
+          }
+          .boring-mode-label {
+            font-size: 12px !important;
+            color: #888 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+          }
+          body.boring-youtube-watch #page-manager {
+            margin-top: 56px !important;
+          }
+
+          html:fullscreen #boring-youtube-overlay,
+          body:fullscreen #boring-youtube-overlay,
+          html:-webkit-full-screen #boring-youtube-overlay,
+          body:-webkit-full-screen #boring-youtube-overlay {
+            display: none !important;
+          }
+
+          html:fullscreen #player,
+          body:fullscreen #player,
+          html:fullscreen #movie_player,
+          body:fullscreen #movie_player,
+          #player:fullscreen,
+          #movie_player:fullscreen,
+          html:-webkit-full-screen #player,
+          body:-webkit-full-screen #player,
+          html:-webkit-full-screen #movie_player,
+          body:-webkit-full-screen #movie_player,
+          #player:-webkit-full-screen,
+          #movie_player:-webkit-full-screen {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            z-index: 2147483647 !important;
+          }
+          html:fullscreen #movie_player video,
+          body:fullscreen #movie_player video,
+          #movie_player:fullscreen video,
+          html:-webkit-full-screen #movie_player video,
+          body:-webkit-full-screen #movie_player video,
+          #movie_player:-webkit-full-screen video {
+            width: 100% !important;
+            height: 100% !important;
+          }
+        `;
+
+        const overlayId = 'boring-youtube-overlay';
+        let overlay = document.getElementById(overlayId);
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = overlayId;
+          overlay.innerHTML = `
+            <button class="boring-back-btn" data-action="back">← Back</button>
+            <span class="boring-mode-label" style="margin-left: 12px;">Video</span>
+          `;
+          body.appendChild(overlay);
+        }
+
+        const player =
+          (document.getElementById('movie_player') as HTMLElement | null) ||
+          (document.querySelector('ytd-player') as HTMLElement | null) ||
+          (document.getElementById('player') as HTMLElement | null);
+        if (player) {
+          forcePlayerVisible(player, { preservePosition: true });
+          const video = player.querySelector('video') as HTMLVideoElement | null;
+          if (video) {
+            video.style.setProperty('object-fit', 'contain', 'important');
+            video.style.setProperty('background', '#000', 'important');
+            console.log('[Boring Browser] YouTube video stats:', {
+              readyState: video.readyState,
+              networkState: video.networkState,
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              clientWidth: video.clientWidth,
+              clientHeight: video.clientHeight
+            });
+          } else {
+            console.log('[Boring Browser] YouTube video element not found in player');
+          }
+        }
+      };
+
+      if (isYouTubeWatch) {
+        applyYouTubeWatchMinimal();
+      } else {
+        applyTemplateToDocument();
+      }
 
       const logRenderState = (stage: string) => {
         const container = document.querySelector('.boring-container') as HTMLElement | null;
@@ -458,6 +636,13 @@ async function performTransformation() {
       };
 
       const ensureTemplatePresent = () => {
+        if (isYouTubeWatch) {
+          applyYouTubeWatchMinimal();
+          logRenderState('ensure-present-youtube-watch');
+          ensureVisible();
+          return;
+        }
+
         const container = document.querySelector('.boring-container') as HTMLElement | null;
         const videoOnly = document.querySelector('.boring-video-only') as HTMLElement | null;
         if (container) {
@@ -560,30 +745,6 @@ function setupEventHandlers() {
     } else if (action === 'reload') {
       e.preventDefault();
       window.location.reload();
-    } else if (action === 'fullscreen') {
-      e.preventDefault();
-      const wrapper = document.querySelector('.boring-player-wrapper') as HTMLElement | null;
-      const fullscreenElement = document.fullscreenElement || (document as any).webkitFullscreenElement;
-
-      if (fullscreenElement) {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if ((document as any).webkitExitFullscreen) {
-          (document as any).webkitExitFullscreen();
-        }
-      } else if (wrapper) {
-        if (wrapper.requestFullscreen) {
-          wrapper.requestFullscreen();
-        } else if ((wrapper as any).webkitRequestFullscreen) {
-          (wrapper as any).webkitRequestFullscreen();
-        }
-      }
-    } else if (action === 'theater') {
-      e.preventDefault();
-      const container = document.querySelector('.boring-video-only') as HTMLElement | null;
-      if (container) {
-        container.classList.toggle('theater');
-      }
     }
   });
 }

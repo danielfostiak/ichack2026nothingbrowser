@@ -35,28 +35,6 @@ body {
   border-bottom: 1px solid #2a2a2c;
 }
 
-.boring-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.boring-action-btn {
-  background: #1a1a1c;
-  border: 1px solid #2a2a2c;
-  color: #e8e8e8;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-
-.boring-action-btn:hover {
-  background: #2a2a2c;
-}
-
 .boring-back-btn {
   background: #1a1a1c;
   border: 1px solid #2a2a2c;
@@ -238,11 +216,6 @@ body {
 
 .boring-container.boring-video-only {
   max-width: 1200px;
-}
-
-.boring-video-only.theater {
-  max-width: 100%;
-  padding: 12px 24px 24px;
 }
 
 .boring-player-wrapper {

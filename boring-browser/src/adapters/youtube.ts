@@ -173,13 +173,12 @@ export function extractYouTubeList(doc: Document, url: URL): ListPageData {
   const items: ListItem[] = [];
   const seen = new Set<string>();
 
-  const pushItem = (videoId: string, itemTitle: string, image?: string) => {
+  const pushItem = (videoId: string, itemTitle: string) => {
     if (!videoId || seen.has(videoId) || !itemTitle) return;
     seen.add(videoId);
     items.push({
       title: itemTitle,
-      href: `https://www.youtube.com/watch?v=${videoId}`,
-      image
+      href: `https://www.youtube.com/watch?v=${videoId}`
     });
   };
 
@@ -187,7 +186,7 @@ export function extractYouTubeList(doc: Document, url: URL): ListPageData {
     const videoId = renderer.videoId;
     const titleText = getTitleFromRenderer(renderer);
     if (!videoId || !titleText) return;
-    pushItem(videoId, titleText, getThumbnailFromRenderer(renderer));
+    pushItem(videoId, titleText);
   });
 
   if (items.length === 0) {
@@ -210,12 +209,7 @@ export function extractYouTubeList(doc: Document, url: URL): ListPageData {
         anchor.textContent?.trim() ||
         '';
 
-      const image =
-        (node.querySelector('img#img') as HTMLImageElement | null)?.src ||
-        (node.querySelector('img') as HTMLImageElement | null)?.src ||
-        undefined;
-
-      pushItem(videoId, titleText, image);
+      pushItem(videoId, titleText);
     });
   }
 
