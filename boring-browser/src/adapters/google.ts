@@ -1,5 +1,6 @@
 // Google Search adapter
 
+import { Adapter, AdapterResult } from './types';
 import { ListPageData, ListItem } from '../ui/templates';
 
 export function extractGoogleSearch(doc: Document, url: string): ListPageData {
@@ -76,3 +77,29 @@ export function extractGoogleSearch(doc: Document, url: string): ListPageData {
     searchBox: true
   };
 }
+
+function isGoogleSearch(url: URL): boolean {
+  const hostname = url.hostname.toLowerCase();
+  if (!hostname.includes('google.com') && !hostname.includes('google.')) {
+    return false;
+  }
+
+  if (url.pathname.includes('/search') || url.searchParams.has('q')) {
+    return true;
+  }
+
+  return false;
+}
+
+export const googleAdapter: Adapter = {
+  id: 'google-search',
+  priority: 90,
+  match: (url) => isGoogleSearch(url),
+  extract: (url, doc): AdapterResult => {
+    const data = extractGoogleSearch(doc, url.toString());
+    return {
+      template: 'list',
+      data
+    };
+  }
+};

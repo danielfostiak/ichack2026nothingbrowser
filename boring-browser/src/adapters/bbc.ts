@@ -1,5 +1,6 @@
 // BBC News adapter
 
+import { Adapter, AdapterResult } from './types';
 import { ListPageData, ListItem } from '../ui/templates';
 
 export function extractBBCList(doc: Document): ListPageData {
@@ -48,3 +49,36 @@ export function extractBBCList(doc: Document): ListPageData {
     modeLabel: 'News List'
   };
 }
+
+function isBBCNewsList(url: URL): boolean {
+  const hostname = url.hostname.toLowerCase();
+  const pathname = url.pathname.toLowerCase();
+
+  if (!hostname.includes('bbc.co.uk') && !hostname.includes('bbc.com')) {
+    return false;
+  }
+
+  if (
+    pathname === '/news' ||
+    pathname === '/news/' ||
+    pathname === '/' ||
+    pathname.match(/^\/news\/?$/)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export const bbcAdapter: Adapter = {
+  id: 'bbc-news',
+  priority: 80,
+  match: (url) => isBBCNewsList(url),
+  extract: (_url, doc): AdapterResult => {
+    const data = extractBBCList(doc);
+    return {
+      template: 'list',
+      data
+    };
+  }
+};

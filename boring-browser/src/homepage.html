@@ -56,21 +56,51 @@
   <script>
     const searchInput = document.getElementById('search-input');
 
+    const DEFAULT_SEARCH_URL = 'https://duckduckgo.com/html/?q=';
+
+    const normalizeInputToUrl = (rawInput) => {
+      const input = rawInput.trim();
+      if (!input) return '';
+
+      if (input.includes('://')) {
+        return input;
+      }
+
+      const withoutPath = input.split('/')[0];
+      const host = withoutPath.includes('@') ? withoutPath.split('@').pop() : withoutPath;
+      const hostWithoutPort = host.split(':')[0];
+
+      const isLocalhost = hostWithoutPort === 'localhost';
+      const isIp = (() => {
+        const parts = hostWithoutPort.split('.');
+        if (parts.length !== 4) return false;
+        return parts.every(part => {
+          if (part.length === 0) return false;
+          const num = Number(part);
+          return Number.isInteger(num) && num >= 0 && num <= 255;
+        });
+      })();
+      const looksLikeDomain = hostWithoutPort.includes('.') && !hostWithoutPort.includes(' ');
+
+      if (isLocalhost || isIp) {
+        return 'http://' + input;
+      }
+
+      if (looksLikeDomain) {
+        return 'https://' + input;
+      }
+
+      return DEFAULT_SEARCH_URL + encodeURIComponent(input);
+    };
+
+    searchInput.addEventListener('focus', () => {
+      searchInput.select();
+    });
+
     searchInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
-        const input = searchInput.value.trim();
-        if (!input) return;
-
-        let url;
-
-        if (input.startsWith('http://') || input.startsWith('https://')) {
-          url = input;
-        } else if (input.includes('.') && !input.includes(' ') && input.split('.')[1]?.length >= 2) {
-          url = 'https://' + input;
-        } else {
-          url = 'https://www.google.com/search?q=' + encodeURIComponent(input);
-        }
-
+        const url = normalizeInputToUrl(searchInput.value);
+        if (!url) return;
         window.location.href = url;
       }
     });

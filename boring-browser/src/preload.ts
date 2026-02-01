@@ -1,391 +1,38 @@
 // Preload script - ZERO FLICKER implementation
 // This runs at document_start to hide the original page immediately
 
+const IPC_MINIMAL_MODE_SYNC = 'get-minimal-mode-sync';
+
 // CRITICAL: Inject veil IMMEDIATELY before any imports or async code
 // This MUST be the first code that runs
 (function() {
+  // Skip veil if minimal mode is disabled (prevents black screens in normal mode)
+  try {
+    const { ipcRenderer } = require('electron');
+    const minimalMode = ipcRenderer.sendSync(IPC_MINIMAL_MODE_SYNC);
+    if (!minimalMode) {
+      console.log('[Boring Browser] Minimal mode disabled at document_start, skipping veil injection');
+      return;
+    }
+  } catch (e) {
+    // If sync IPC fails, fall back to applying veil for safety
+    console.warn('[Boring Browser] Failed to check minimal mode sync, applying veil:', e);
+  }
+
   // Skip veil entirely for local files (homepage, etc.)
   if (location.protocol === 'file:') {
     console.log('[Boring Browser] Local file detected in veil IIFE, skipping veil injection');
     return;
   }
 
-  // FAKE YOUTUBE IMMEDIATELY - Replace before any scripts load
-  if (location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) {
-    console.log('[Boring Browser] YouTube detected - injecting fake YouTube immediately');
-
-    // Apply immediate veil to hide YouTube while we build our fake page
-    const applyYouTubeVeil = () => {
-      const veilStyle = document.createElement('style');
-      veilStyle.id = 'youtube-veil';
-      veilStyle.textContent = `
-        * { visibility: hidden !important; }
-        html, body {
-          background: #0b0b0c !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-      `;
-      if (document.head) {
-        document.head.appendChild(veilStyle);
-      } else if (document.documentElement) {
-        document.documentElement.appendChild(veilStyle);
-      }
-    };
-
-    // Apply veil immediately
-    applyYouTubeVeil();
-
-    // Extract video ID if this is a watch page
-    const extractYouTubeVideoId = (url: string): string | null => {
-      try {
-        const urlObj = new URL(url);
-        // youtube.com/watch?v=VIDEO_ID
-        if (urlObj.searchParams.has('v')) {
-          return urlObj.searchParams.get('v');
-        }
-        // youtu.be/VIDEO_ID
-        if (urlObj.hostname.includes('youtu.be')) {
-          return urlObj.pathname.slice(1);
-        }
-      } catch (e) {
-        console.error('[Boring Browser] Error extracting video ID:', e);
-      }
-      return null;
-    };
-
-    const isVideoPage = location.pathname.includes('/watch') || location.hostname.includes('youtu.be');
-    const videoId = isVideoPage ? extractYouTubeVideoId(location.href) : null;
-
-    const buildFakeYouTube = () => {
-      if (!document.body) {
-        setTimeout(buildFakeYouTube, 50);
-        return;
-      }
-
-      if (videoId) {
-        buildFakeVideoPage(videoId);
-      } else {
-        buildFakeHomepage();
-      }
-    };
-
-    const buildFakeVideoPage = (videoId: string) => {
-      console.log('[Boring Browser] Building fake video page for:', videoId);
-
-      // CRITICAL: Stop YouTube from loading any further
-      window.stop();
-
-      // Remove the veil
-      const veil = document.getElementById('youtube-veil');
-      if (veil) {
-        veil.remove();
-      }
-
-      if (document.head) {
-        const style = document.createElement('style');
-        style.textContent = `
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0b0b0c !important;
-            color: #e8e8e8;
-          }
-          .video-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-          .video-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #2a2a2c;
-          }
-          .boring-back-btn {
-            background: #1a1a1c;
-            border: 1px solid #2a2a2c;
-            color: #e8e8e8;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-          }
-          .boring-back-btn:hover { background: #2a2a2c; }
-          .video-mode-label {
-            font-size: 12px;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          .video-player-wrapper {
-            position: relative;
-            width: 100%;
-            padding-bottom: 56.25%;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 20px;
-          }
-          .video-player-wrapper video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-            background: #000;
-          }
-          .demo-badge {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: #007acc;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-family: monospace;
-            z-index: 999999;
-          }
-        `;
-        document.head.appendChild(style);
-      }
-
-      while (document.body.firstChild) {
-        document.body.removeChild(document.body.firstChild);
-      }
-
-      const container = document.createElement('div');
-      container.className = 'video-container';
-
-      const header = document.createElement('div');
-      header.className = 'video-header';
-
-      const backBtn = document.createElement('button');
-      backBtn.className = 'boring-back-btn';
-      backBtn.textContent = '← Back';
-      backBtn.onclick = () => window.history.back();
-
-      const modeLabel = document.createElement('span');
-      modeLabel.className = 'video-mode-label';
-      modeLabel.textContent = 'Video (Demo)';
-
-      header.appendChild(backBtn);
-      header.appendChild(modeLabel);
-      container.appendChild(header);
-
-      const playerWrapper = document.createElement('div');
-      playerWrapper.className = 'video-player-wrapper';
-
-      // Create HTML5 video player with local video file
-      const video = document.createElement('video');
-      video.controls = true;
-      video.autoplay = true;
-      video.style.width = '100%';
-      video.style.height = '100%';
-      video.style.backgroundColor = '#000';
-
-      // Load video file as blob to avoid file:// protocol restrictions
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const videoPath = path.join(__dirname, 'videoplayback.mp4');
-        const videoBuffer = fs.readFileSync(videoPath);
-        const blob = new Blob([videoBuffer], { type: 'video/mp4' });
-        const blobUrl = URL.createObjectURL(blob);
-        video.src = blobUrl;
-        console.log('[Boring Browser] Video loaded from blob URL');
-      } catch (err) {
-        console.error('[Boring Browser] Failed to load video:', err);
-        video.textContent = 'Failed to load video';
-      }
-
-      playerWrapper.appendChild(video);
-      container.appendChild(playerWrapper);
-      document.body.appendChild(container);
-
-      const badge = document.createElement('div');
-      badge.className = 'demo-badge';
-      badge.textContent = '✓ Demo Mode Active';
-      document.body.appendChild(badge);
-
-      console.log('[Boring Browser] Fake video page built!');
-    };
-
-    const buildFakeHomepage = () => {
-      // CRITICAL: Stop YouTube from loading any further
-      window.stop();
-
-      // Remove the veil
-      const veil = document.getElementById('youtube-veil');
-      if (veil) {
-        veil.remove();
-      }
-
-      if (document.head) {
-        const style = document.createElement('style');
-        style.textContent = `
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0b0b0c !important;
-            color: #e8e8e8;
-            line-height: 1.6;
-          }
-          .boring-container { max-width: 720px; margin: 0 auto; padding: 40px 20px; }
-          .boring-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 32px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid #2a2a2c;
-          }
-          .boring-back-btn {
-            background: #1a1a1c;
-            border: 1px solid #2a2a2c;
-            color: #e8e8e8;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-          }
-          .boring-back-btn:hover { background: #2a2a2c; }
-          .boring-mode-label {
-            font-size: 12px;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          .boring-title {
-            font-size: 32px;
-            font-weight: 700;
-            line-height: 1.2;
-            margin-bottom: 16px;
-            color: #fff;
-          }
-          .boring-search {
-            width: 100%;
-            padding: 12px 16px;
-            background: #1a1a1c;
-            border: 1px solid #2a2a2c;
-            border-radius: 8px;
-            color: #e8e8e8;
-            font-size: 16px;
-            margin-bottom: 24px;
-            outline: none;
-          }
-          .boring-search:focus { border-color: #4a9eff; }
-          .boring-list { list-style: none; }
-          .boring-list-item { margin-bottom: 8px; }
-          .boring-list-link {
-            display: block;
-            padding: 16px 20px;
-            background: #1a1a1c;
-            border: 1px solid #2a2a2c;
-            border-radius: 8px;
-            color: #e8e8e8;
-            text-decoration: none;
-            transition: all 0.2s;
-            font-size: 16px;
-            line-height: 1.4;
-          }
-          .boring-list-link:hover {
-            background: #2a2a2c;
-            border-color: #3a3a3c;
-            transform: translateX(4px);
-          }
-          .demo-badge {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: #007acc;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-family: monospace;
-            z-index: 999999;
-          }
-        `;
-        document.head.appendChild(style);
-      }
-
-      while (document.body.firstChild) {
-        document.body.removeChild(document.body.firstChild);
-      }
-
-      const container = document.createElement('div');
-      container.className = 'boring-container';
-
-      const header = document.createElement('div');
-      header.className = 'boring-header';
-
-      const backBtn = document.createElement('button');
-      backBtn.className = 'boring-back-btn';
-      backBtn.textContent = '← Back';
-      backBtn.onclick = () => window.history.back();
-
-      const modeLabel = document.createElement('span');
-      modeLabel.className = 'boring-mode-label';
-      modeLabel.textContent = 'Videos (Demo)';
-
-      header.appendChild(backBtn);
-      header.appendChild(modeLabel);
-      container.appendChild(header);
-
-      const h1 = document.createElement('h1');
-      h1.className = 'boring-title';
-      h1.textContent = 'YouTube';
-      container.appendChild(h1);
-
-      const searchInput = document.createElement('input');
-      searchInput.type = 'text';
-      searchInput.className = 'boring-search';
-      searchInput.placeholder = 'Search...';
-      container.appendChild(searchInput);
-
-      const ul = document.createElement('ul');
-      ul.className = 'boring-list';
-
-      const videos = [
-        { title: 'Building a Browser from Scratch - Complete Tutorial', href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-        { title: 'Electron App Development - Best Practices 2026', href: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
-        { title: 'TypeScript Advanced Patterns - Full Course', href: 'https://www.youtube.com/watch?v=9bZkp7q19f0' },
-        { title: 'Web Performance Optimization Techniques', href: 'https://www.youtube.com/watch?v=kxT8-C1vmd8' },
-        { title: 'Modern CSS Layout - Complete Guide', href: 'https://www.youtube.com/watch?v=L4CR-c2_2L0' },
-        { title: 'JavaScript Runtime Deep Dive', href: 'https://www.youtube.com/watch?v=8aGhZQkoFbQ' },
-        { title: 'Building Minimal UIs - Design Philosophy', href: 'https://www.youtube.com/watch?v=hFmr3r4dUNs' },
-        { title: 'Content Security Policy Explained', href: 'https://www.youtube.com/watch?v=3JvuKT9jftk' },
-        { title: 'DOM Manipulation Performance Tips', href: 'https://www.youtube.com/watch?v=tJa5fJ-hjk0' },
-        { title: 'Zero-Flicker Page Transitions', href: 'https://www.youtube.com/watch?v=L2vS_050c-M' }
-      ];
-
-      videos.forEach(video => {
-        const li = document.createElement('li');
-        li.className = 'boring-list-item';
-
-        const a = document.createElement('a');
-        a.href = video.href;
-        a.className = 'boring-list-link';
-        a.textContent = video.title;
-
-        li.appendChild(a);
-        ul.appendChild(li);
-      });
-
-      container.appendChild(ul);
-      document.body.appendChild(container);
-
-      const badge = document.createElement('div');
-      badge.className = 'demo-badge';
-      badge.textContent = '✓ Demo Mode Active';
-      document.body.appendChild(badge);
-
-      console.log('[Boring Browser] Fake homepage built!');
-    };
-
-    buildFakeYouTube();
-    return;
+  const isYouTube = location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be');
+  if (isYouTube) {
+    const isWatch =
+      location.pathname.includes('/watch') ||
+      location.pathname.startsWith('/shorts/') ||
+      location.hostname.includes('youtu.be');
+    (window as any).__boringFastPath = isWatch ? 'youtube-watch' : 'youtube-list';
+    // NOTE: Don't call window.stop() on watch pages; it can prevent the embed from loading.
   }
 
 
@@ -434,6 +81,7 @@
 import { ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from './ipc';
 import { runTransform } from './adapters/index';
+import { renderTemplate } from './ui/templates';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -450,12 +98,6 @@ async function performTransformation() {
   if (location.protocol === 'file:') {
     console.log('[Boring Browser] Local file detected, skipping transformation');
     removeVeil();
-    return;
-  }
-
-  // YouTube is already faked in veil IIFE - skip transformation
-  if (location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) {
-    console.log('[Boring Browser] YouTube already faked in veil, skipping normal transformation');
     return;
   }
 
@@ -476,20 +118,78 @@ async function performTransformation() {
       return;
     }
 
-    // Wait for DOM to be ready
-    if (document.readyState === 'loading') {
-      console.log('[Boring Browser] Waiting for DOMContentLoaded...');
-      await new Promise(resolve => {
-        document.addEventListener('DOMContentLoaded', resolve, { once: true });
-      });
+    const fastPath = (window as any).__boringFastPath as string | undefined;
+    let youtubePlayer: HTMLElement | null = null;
+
+    if (fastPath !== 'youtube-watch') {
+      // Wait for DOM to be ready
+      if (document.readyState === 'loading') {
+        console.log('[Boring Browser] Waiting for DOMContentLoaded...');
+        await new Promise(resolve => {
+          document.addEventListener('DOMContentLoaded', resolve, { once: true });
+        });
+      }
+
+      // Wait for dynamic content to fully load (BBC needs this)
+      await new Promise(resolve => setTimeout(resolve, 300));
+    } else {
+      console.log('[Boring Browser] Fast path enabled, skipping DOM wait');
     }
 
-    // Wait for dynamic content to fully load (BBC needs this)
-    await new Promise(resolve => setTimeout(resolve, 300));
+    if (fastPath === 'youtube-watch') {
+      const waitForYouTubePlayer = async (timeoutMs = 4000, intervalMs = 50) => {
+        const start = Date.now();
+        const selectors = ['#movie_player', 'ytd-player', '#player'];
+        while (Date.now() - start < timeoutMs) {
+          for (const selector of selectors) {
+            const el = document.querySelector(selector) as HTMLElement | null;
+            if (el && el.querySelector('video')) {
+              return el;
+            }
+          }
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+        return null;
+      };
+
+      youtubePlayer = await waitForYouTubePlayer();
+      (window as any).__boringYouTubePlayer = youtubePlayer;
+      console.log('[Boring Browser] YouTube player found:', !!youtubePlayer);
+    } else {
+      (window as any).__boringYouTubePlayer = null;
+    }
+
+    if (fastPath === 'youtube-list') {
+      const waitForYouTubeData = async (timeoutMs = 2000, intervalMs = 50) => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          const win = document.defaultView as any;
+          if (win && win.ytInitialData) return true;
+          const scripts = document.querySelectorAll('script');
+          for (const script of scripts) {
+            const text = script.textContent || '';
+            if (text.includes('ytInitialData')) return true;
+          }
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+        return false;
+      };
+
+      const hasData = await waitForYouTubeData();
+      console.log('[Boring Browser] YouTube initial data available:', hasData);
+      try {
+        // Stop further loading once we have enough data to render.
+        window.stop();
+      } catch (e) {
+        console.warn('[Boring Browser] Failed to stop YouTube load after data:', e);
+      }
+    }
 
     // Run the transformation
     console.log('[Boring Browser] Running transformation...');
-    const transformedHTML = runTransform(location.href, document);
+    const transformResult = runTransform(location.href, document);
+    console.log('[Boring Browser] Adapter result:', transformResult.template);
+    const transformedHTML = renderTemplate(transformResult);
     console.log('[Boring Browser] Transformation complete, HTML length:', transformedHTML.length);
 
     // Read CSS file
@@ -502,13 +202,15 @@ async function performTransformation() {
       cssContent = getEmbeddedStyles();
     }
 
-    // Replace entire document
+    // Replace entire document (adapter/template-driven, single path for all sites)
     console.log('[Boring Browser] Replacing document HTML...');
     try {
-      // Use document.open/write/close to bypass Trusted Types restrictions (YouTube CSP)
-      const newHTML = `<!DOCTYPE html>
-<html>
-  <head>
+      const badgeHTML = `
+    <div style="position: fixed; bottom: 10px; right: 10px; background: #007acc; color: white; padding: 8px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; z-index: 999999;">
+      ✓ Minimal Mode Active
+    </div>`;
+
+      const headMarkup = `
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Boring Browser - Minimal View</title>
@@ -537,18 +239,250 @@ async function performTransformation() {
         }
       }
     </style>
-  </head>
-  <body>
-    ${transformedHTML}
-    <div style="position: fixed; bottom: 10px; right: 10px; background: #007acc; color: white; padding: 8px 12px; border-radius: 4px; font-size: 11px; font-family: monospace; z-index: 999999;">
-      ✓ Minimal Mode Active
-    </div>
-  </body>
-</html>`;
+  `;
 
-      document.open();
-      document.write(newHTML);
-      document.close();
+      const forceVisible = (el: HTMLElement | null) => {
+        if (!el) return;
+        el.style.setProperty('display', 'block', 'important');
+        el.style.setProperty('visibility', 'visible', 'important');
+        el.style.setProperty('opacity', '1', 'important');
+        el.style.setProperty('filter', 'none', 'important');
+        el.style.setProperty('transform', 'none', 'important');
+        el.style.setProperty('mix-blend-mode', 'normal', 'important');
+      };
+
+      const forcePlayerVisible = (player: HTMLElement | null) => {
+        if (!player) return;
+        player.style.setProperty('position', 'absolute', 'important');
+        player.style.setProperty('inset', '0', 'important');
+        player.style.setProperty('width', '100%', 'important');
+        player.style.setProperty('height', '100%', 'important');
+        player.style.setProperty('visibility', 'visible', 'important');
+        player.style.setProperty('opacity', '1', 'important');
+        player.style.setProperty('display', 'block', 'important');
+        player.style.setProperty('transform', 'none', 'important');
+
+        const video = player.querySelector('video') as HTMLVideoElement | null;
+        if (video) {
+          video.style.setProperty('width', '100%', 'important');
+          video.style.setProperty('height', '100%', 'important');
+          video.style.setProperty('display', 'block', 'important');
+          video.style.setProperty('visibility', 'visible', 'important');
+          video.style.setProperty('opacity', '1', 'important');
+        }
+      };
+
+      const applyTemplateToDocument = () => {
+        const preserveHead = fastPath === 'youtube-watch';
+        const html = document.documentElement || document.createElement('html');
+        if (!document.documentElement) {
+          document.appendChild(html);
+        }
+
+        if (!preserveHead) {
+          html.setAttribute('lang', 'en');
+          html.className = '';
+          html.removeAttribute('style');
+        }
+
+        let head = document.head;
+        let body = document.body;
+
+        if (!preserveHead) {
+          head = document.createElement('head');
+          body = document.createElement('body');
+
+          // Wipe any leftover nodes/styles from the original page.
+          while (html.firstChild) {
+            html.removeChild(html.firstChild);
+          }
+          html.appendChild(head);
+          html.appendChild(body);
+
+          head.innerHTML = headMarkup;
+          body.innerHTML = `${transformedHTML}${badgeHTML}`;
+        } else {
+          if (!head) {
+            head = document.createElement('head');
+            html.appendChild(head);
+          }
+          if (!body) {
+            body = document.createElement('body');
+            html.appendChild(body);
+          }
+
+          const existingStyle = head.querySelector('style[data-boring-style]') as HTMLStyleElement | null;
+          if (existingStyle) {
+            existingStyle.textContent = `
+              ${cssContent}
+              * { visibility: visible !important; }
+              html, body { opacity: 1 !important; visibility: visible !important; }
+            `;
+          } else {
+            const style = document.createElement('style');
+            style.setAttribute('data-boring-style', 'true');
+            style.textContent = `
+              ${cssContent}
+              * { visibility: visible !important; }
+              html, body { opacity: 1 !important; visibility: visible !important; }
+            `;
+            head.appendChild(style);
+          }
+
+          const preservedPlayer = (window as any).__boringYouTubePlayer as HTMLElement | null;
+          if (preservedPlayer && preservedPlayer.parentNode) {
+            preservedPlayer.parentNode.removeChild(preservedPlayer);
+          }
+
+          body.innerHTML = `${transformedHTML}${badgeHTML}`;
+
+          const slot = body.querySelector('#boring-player-slot') as HTMLElement | null;
+          if (slot) {
+            if (preservedPlayer) {
+              slot.innerHTML = '';
+              slot.appendChild(preservedPlayer);
+              forcePlayerVisible(preservedPlayer);
+              const video = preservedPlayer.querySelector('video') as HTMLVideoElement | null;
+              if (video) {
+                console.log('[Boring Browser] YouTube video stats:', {
+                  readyState: video.readyState,
+                  networkState: video.networkState,
+                  videoWidth: video.videoWidth,
+                  videoHeight: video.videoHeight,
+                  clientWidth: video.clientWidth,
+                  clientHeight: video.clientHeight
+                });
+              } else {
+                console.log('[Boring Browser] YouTube video element not found in player');
+              }
+              console.log('[Boring Browser] YouTube player attached:', true);
+            } else {
+              const videoId = slot.getAttribute('data-video-id');
+              if (videoId) {
+                const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&origin=https://www.youtube.com`;
+                slot.innerHTML = `
+                  <iframe
+                    src="${embedUrl}"
+                    title="YouTube video player"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                  ></iframe>
+                `;
+                console.log('[Boring Browser] YouTube player fallback embed used:', true);
+              }
+            }
+          }
+        }
+
+        body.style.background = '#0b0b0c';
+        body.style.color = '#e8e8e8';
+        body.style.minHeight = '100vh';
+
+        forceVisible(html as HTMLElement);
+        forceVisible(body);
+      };
+
+      applyTemplateToDocument();
+
+      const logRenderState = (stage: string) => {
+        const container = document.querySelector('.boring-container') as HTMLElement | null;
+        const videoOnly = document.querySelector('.boring-video-only') as HTMLElement | null;
+        const hasContainer = !!container;
+        const hasVideoOnly = !!videoOnly;
+        const bodyLen = document.body?.innerHTML.length || 0;
+        const headLen = document.head?.innerHTML.length || 0;
+        const bodyStyle = document.body ? window.getComputedStyle(document.body) : null;
+        const htmlStyle = document.documentElement ? window.getComputedStyle(document.documentElement) : null;
+        const containerStyle = container ? window.getComputedStyle(container) : null;
+        const rect = container ? container.getBoundingClientRect() : null;
+        const videoRect = videoOnly ? videoOnly.getBoundingClientRect() : null;
+        const payload = {
+          hasContainer,
+          hasVideoOnly,
+          bodyLen,
+          headLen,
+          readyState: document.readyState,
+          body: bodyStyle
+            ? {
+                display: bodyStyle.display,
+                visibility: bodyStyle.visibility,
+                opacity: bodyStyle.opacity,
+                background: bodyStyle.backgroundColor,
+                color: bodyStyle.color
+              }
+            : null,
+          html: htmlStyle
+            ? {
+                display: htmlStyle.display,
+                visibility: htmlStyle.visibility,
+                opacity: htmlStyle.opacity,
+                background: htmlStyle.backgroundColor
+              }
+            : null,
+          container: containerStyle
+            ? {
+                display: containerStyle.display,
+                visibility: containerStyle.visibility,
+                opacity: containerStyle.opacity
+              }
+            : null,
+          containerRect: rect
+            ? {
+                x: Math.round(rect.x),
+                y: Math.round(rect.y),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height)
+              }
+            : null,
+          videoRect: videoRect
+            ? {
+                x: Math.round(videoRect.x),
+                y: Math.round(videoRect.y),
+                width: Math.round(videoRect.width),
+                height: Math.round(videoRect.height)
+              }
+            : null
+        };
+        console.log(`[Boring Browser] Render state (${stage}) ${JSON.stringify(payload)}`);
+      };
+
+      logRenderState('after-apply');
+
+      const ensureVisible = () => {
+        forceVisible(document.documentElement as HTMLElement);
+        forceVisible(document.body);
+        if (document.body) {
+          document.body.style.minHeight = '100vh';
+        }
+      };
+
+      const ensureTemplatePresent = () => {
+        const container = document.querySelector('.boring-container') as HTMLElement | null;
+        const videoOnly = document.querySelector('.boring-video-only') as HTMLElement | null;
+        if (container) {
+          forceVisible(container);
+          logRenderState('ensure-present-hit');
+          ensureVisible();
+          return;
+        }
+        if (videoOnly) {
+          forceVisible(videoOnly);
+          logRenderState('ensure-present-hit-video');
+          ensureVisible();
+          return;
+        }
+
+        applyTemplateToDocument();
+        logRenderState('ensure-present-reapply');
+        ensureVisible();
+      };
+
+      // Run once now and once after the browser finishes parsing the new document.
+      ensureTemplatePresent();
+      setTimeout(ensureTemplatePresent, 0);
+      setTimeout(() => logRenderState('post-timeout-50ms'), 50);
+      setTimeout(() => logRenderState('post-timeout-250ms'), 250);
     } catch (htmlError) {
       console.error('[Boring Browser] Failed to replace document:', htmlError);
       console.error('[Boring Browser] Transformed HTML preview:', transformedHTML.substring(0, 500));
@@ -559,6 +493,15 @@ async function performTransformation() {
     hasTransformed = true;
     lastUrl = location.href;
     console.log('[Boring Browser] Document replaced successfully');
+
+    // Run any adapter post-render hook
+    if (typeof transformResult.postRender === 'function') {
+      try {
+        transformResult.postRender();
+      } catch (hookError) {
+        console.error('[Boring Browser] Post-render hook failed:', hookError);
+      }
+    }
 
     // Reveal the page
     console.log('[Boring Browser] Revealing page...');
@@ -584,11 +527,23 @@ async function performTransformation() {
 function removeVeil() {
   console.log('[Boring Browser] Removing veil...');
 
-  // Remove the veil style tag
-  const veilStyle = document.getElementById('boring-browser-veil');
-  if (veilStyle) {
-    veilStyle.remove();
-  }
+  const removeNow = () => {
+    const veilStyle = document.getElementById('boring-browser-veil');
+    if (veilStyle) {
+      veilStyle.remove();
+    }
+  };
+
+  // Remove immediately if present
+  removeNow();
+
+  // If the veil injects after this (race with documentElement), remove it then too.
+  const root = document.documentElement || document;
+  const observer = new MutationObserver(() => {
+    removeNow();
+  });
+  observer.observe(root, { childList: true, subtree: true });
+  setTimeout(() => observer.disconnect(), 2000);
 
   console.log('[Boring Browser] Veil removed!');
 }
@@ -605,6 +560,30 @@ function setupEventHandlers() {
     } else if (action === 'reload') {
       e.preventDefault();
       window.location.reload();
+    } else if (action === 'fullscreen') {
+      e.preventDefault();
+      const wrapper = document.querySelector('.boring-player-wrapper') as HTMLElement | null;
+      const fullscreenElement = document.fullscreenElement || (document as any).webkitFullscreenElement;
+
+      if (fullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          (document as any).webkitExitFullscreen();
+        }
+      } else if (wrapper) {
+        if (wrapper.requestFullscreen) {
+          wrapper.requestFullscreen();
+        } else if ((wrapper as any).webkitRequestFullscreen) {
+          (wrapper as any).webkitRequestFullscreen();
+        }
+      }
+    } else if (action === 'theater') {
+      e.preventDefault();
+      const container = document.querySelector('.boring-video-only') as HTMLElement | null;
+      if (container) {
+        container.classList.toggle('theater');
+      }
     }
   });
 }
@@ -612,6 +591,8 @@ function setupEventHandlers() {
 function setupSearchHandler() {
   const searchInput = document.getElementById('boring-search-input') as HTMLInputElement;
   if (searchInput) {
+    const DEFAULT_SEARCH_URL = 'https://duckduckgo.com/html/?q=';
+
     searchInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         const query = searchInput.value.trim();
@@ -620,11 +601,9 @@ function setupSearchHandler() {
           const currentUrl = window.location.href;
           if (currentUrl.includes('youtube.com')) {
             window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-          } else if (currentUrl.includes('google.com')) {
-            window.location.href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
           } else {
-            // Default to Google
-            window.location.href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+            // Default to DuckDuckGo (paired with adapter)
+            window.location.href = `${DEFAULT_SEARCH_URL}${encodeURIComponent(query)}`;
           }
         }
       }
@@ -633,6 +612,17 @@ function setupSearchHandler() {
 }
 
 function setupNavigationDetection() {
+  let navigationCheckInterval = (window as any).__boringNavInterval as number | undefined;
+  let navigationObserver = (window as any).__boringNavObserver as MutationObserver | undefined;
+  let popstateInstalled = (window as any).__boringNavPopstateInstalled as boolean | undefined;
+
+  if (navigationCheckInterval) {
+    clearInterval(navigationCheckInterval);
+  }
+  if (navigationObserver) {
+    navigationObserver.disconnect();
+  }
+
   // Monitor URL changes for SPA navigation (especially YouTube)
   let currentUrl = location.href;
 
@@ -648,24 +638,41 @@ function setupNavigationDetection() {
   };
 
   // Check periodically (conservative timing for stability)
-  setInterval(checkUrlChange, 500);
+  navigationCheckInterval = window.setInterval(checkUrlChange, 500);
+  (window as any).__boringNavInterval = navigationCheckInterval;
 
   // Also listen to popstate for back/forward
-  window.addEventListener('popstate', () => {
-    lastUrl = '';
-    hasTransformed = false;
-    performTransformation();
-  });
+  if (!popstateInstalled) {
+    window.addEventListener('popstate', () => {
+      lastUrl = '';
+      hasTransformed = false;
+      performTransformation();
+    });
+    (window as any).__boringNavPopstateInstalled = true;
+  }
 
   // MutationObserver for DOM changes that might indicate navigation
-  const observer = new MutationObserver(() => {
+  navigationObserver = new MutationObserver(() => {
     checkUrlChange();
   });
+  (window as any).__boringNavObserver = navigationObserver;
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: false
-  });
+  const attachObserver = (attempts = 0) => {
+    const target = document.body || document.documentElement;
+    if (!target) {
+      if (attempts < 20) {
+        setTimeout(() => attachObserver(attempts + 1), 50);
+      }
+      return;
+    }
+
+    navigationObserver.observe(target, {
+      childList: true,
+      subtree: false
+    });
+  };
+
+  attachObserver();
 }
 
 function getEmbeddedStyles(): string {

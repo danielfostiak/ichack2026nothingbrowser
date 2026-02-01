@@ -1,5 +1,6 @@
 // ASOS adapter for product listings
 
+import { Adapter, AdapterResult } from './types';
 import { ListPageData, ListItem } from '../ui/templates';
 
 export function extractASOSProducts(doc: Document, url: string): ListPageData {
@@ -181,3 +182,20 @@ export function extractASOSProducts(doc: Document, url: string): ListPageData {
     searchBox: false
   };
 }
+
+function isASOS(url: URL): boolean {
+  return url.hostname.toLowerCase().includes('asos.com');
+}
+
+export const asosAdapter: Adapter = {
+  id: 'asos-products',
+  priority: 70,
+  match: (url) => isASOS(url),
+  extract: (url, doc): AdapterResult => {
+    const data = extractASOSProducts(doc, url.toString());
+    return {
+      template: 'list',
+      data
+    };
+  }
+};

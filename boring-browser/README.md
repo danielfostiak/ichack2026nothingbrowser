@@ -47,8 +47,8 @@ The browser launches with BBC News loaded. Try this workflow:
 ```
 main.ts          → Electron main process + BrowserView + chrome UI
 preload.ts       → Document-start script that hides & transforms pages
-adapters/        → Page classifiers and extractors
-  classify.ts    → Determines page type (article, list, video, etc.)
+adapters/        → Adapter registry + extractors
+  index.ts       → Adapter registry (match + extract)
   bbc.ts         → BBC News list extractor
   youtube.ts     → YouTube list and watch extractors
   articleGeneric.ts → Mozilla Readability integration
@@ -78,55 +78,48 @@ ui/
 
 - [src/preload.ts](src/preload.ts) - The critical zero-flicker implementation
 - [src/main.ts](src/main.ts) - Electron shell with BrowserView
-- [src/adapters/classify.ts](src/adapters/classify.ts) - Page type detection
+- [src/adapters/index.ts](src/adapters/index.ts) - Adapter registry
+- [src/adapters/adapterTemplate.ts](src/adapters/adapterTemplate.ts) - Adapter starter file
 - [src/ui/templates.ts](src/ui/templates.ts) - UI rendering functions
 - [src/ui/styles.css](src/ui/styles.css) - Shared visual theme
 
-## Adding New Adapters
+## Adding Adapters + Templates (Only Workflow)
 
-To add support for a new site:
+All pages render through adapters and templates. To add a new site, you only need:
 
-1. **Add classification rule** in `src/adapters/classify.ts`:
+1. **Create a new adapter** by copying:
+   - `src/adapters/adapterTemplate.ts` → `src/adapters/mySite.ts`
+
+2. **Implement `match` and `extract`** in your adapter:
    ```typescript
-   export enum PageMode {
-     // ...
-     MY_SITE_LIST = 'MY_SITE_LIST'
-   }
-
-   export function classifyPage(url: string, doc: Document): PageMode {
-     if (hostname.includes('mysite.com')) {
-       return PageMode.MY_SITE_LIST;
-     }
-     // ...
-   }
-   ```
-
-2. **Create extractor** in `src/adapters/mySite.ts`:
-   ```typescript
+   import { Adapter, AdapterResult } from './types';
    import { ListPageData } from '../ui/templates';
 
-   export function extractMySiteList(doc: Document): ListPageData {
-     // Extract links, titles, etc.
-     return { title: 'My Site', items: [...], modeLabel: 'My Site' };
-   }
-   ```
-
-3. **Register in index** `src/adapters/index.ts`:
-   ```typescript
-   import { extractMySiteList } from './mySite';
-
-   export function runTransform(url: string, doc: Document): string {
-     const mode = classifyPage(url, doc);
-
-     switch (mode) {
-       case PageMode.MY_SITE_LIST:
-         return renderListPage(extractMySiteList(doc));
-       // ...
+   export const mySiteAdapter: Adapter = {
+     id: 'my-site',
+     priority: 60,
+     match: (url) => url.hostname.includes('mysite.com'),
+     extract: (url, doc): AdapterResult => {
+       const data: ListPageData = {
+         title: 'My Site',
+         items: [
+           { title: 'Example', href: url.toString() }
+         ],
+         modeLabel: 'My Site'
+       };
+       return { template: 'list', data };
      }
-   }
+   };
    ```
 
-4. **Rebuild**: `npm run build`
+3. **Add/extend templates**:
+   - Existing templates live in `src/ui/templates.ts`
+   - Shared styles live in `src/ui/styles.css`
+
+4. **Register the adapter**:
+   - Add your adapter to the list in `src/adapters/index.ts`
+
+5. **Rebuild**: `npm run build`
 
 ## Known Limitations
 

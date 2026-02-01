@@ -1,9 +1,10 @@
 // Generic article adapter using Mozilla Readability
 
 import { Readability } from '@mozilla/readability';
+import { Adapter, AdapterResult } from './types';
 import { ArticlePageData } from '../ui/templates';
 
-export function extractGenericArticle(doc: Document): ArticlePageData | null {
+function extractGenericArticle(doc: Document): ArticlePageData | null {
   // Clone document for Readability (it modifies the DOM)
   const documentClone = doc.cloneNode(true) as Document;
 
@@ -21,3 +22,47 @@ export function extractGenericArticle(doc: Document): ArticlePageData | null {
     modeLabel: 'Article'
   };
 }
+
+function looksLikeArticle(doc: Document): boolean {
+  if (doc.querySelector('article')) {
+    return true;
+  }
+
+  const ogType = doc.querySelector('meta[property="og:type"]');
+  if (ogType && ogType.getAttribute('content') === 'article') {
+    return true;
+  }
+
+  const h1 = doc.querySelector('h1');
+  const paragraphs = doc.querySelectorAll('p');
+
+  if (h1 && paragraphs.length >= 3) {
+    let totalTextLength = 0;
+    paragraphs.forEach(p => {
+      totalTextLength += p.textContent?.length || 0;
+    });
+
+    if (totalTextLength > 500) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export const genericArticleAdapter: Adapter = {
+  id: 'generic-article',
+  priority: 10,
+  match: (_url, doc) => looksLikeArticle(doc),
+  extract: (_url, doc): AdapterResult | null => {
+    const data = extractGenericArticle(doc);
+    if (!data) return null;
+
+    return {
+      template: 'article',
+      data
+    };
+  }
+};
+
+export { extractGenericArticle };

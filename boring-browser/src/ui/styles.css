@@ -35,6 +35,28 @@ body {
   border-bottom: 1px solid #2a2a2c;
 }
 
+.boring-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.boring-action-btn {
+  background: #1a1a1c;
+  border: 1px solid #2a2a2c;
+  color: #e8e8e8;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.boring-action-btn:hover {
+  background: #2a2a2c;
+}
+
 .boring-back-btn {
   background: #1a1a1c;
   border: 1px solid #2a2a2c;
@@ -208,12 +230,71 @@ body {
   color: #fff;
 }
 
+.boring-video-only {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.boring-container.boring-video-only {
+  max-width: 1200px;
+}
+
+.boring-video-only.theater {
+  max-width: 100%;
+  padding: 12px 24px 24px;
+}
+
 .boring-player-wrapper {
   position: relative;
   width: 100%;
   background: #000;
   border-radius: 8px;
   overflow: hidden;
+  aspect-ratio: 16 / 9;
+  pointer-events: auto;
+}
+
+.boring-player-wrapper #boring-player-slot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.boring-player-wrapper #boring-player-slot > * {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  pointer-events: auto;
+}
+
+.boring-player-wrapper video {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #000;
+}
+
+.boring-player-wrapper iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #000;
+  pointer-events: auto;
+}
+
+.boring-video-placeholder {
+  color: #888;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
 }
 
 /* Search box */

@@ -5,6 +5,10 @@ import { IPC_CHANNELS } from './ipc';
 let mainWindow: BrowserWindow | null = null;
 let browserView: BrowserView | null = null;
 let minimalModeEnabled = true;
+let cspStripperInstalled = false;
+
+const DEFAULT_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 const CHROME_HEIGHT = 60;
 
@@ -91,23 +95,51 @@ function createWindow() {
         forwardBtn.addEventListener('click', () => ipcRenderer.send('nav-forward'));
         refreshBtn.addEventListener('click', () => ipcRenderer.send('nav-refresh'));
 
+        const DEFAULT_SEARCH_URL = 'https://duckduckgo.com/html/?q=';
+
+        const normalizeInputToUrl = (rawInput) => {
+          const input = rawInput.trim();
+          if (!input) return '';
+
+          if (input.includes('://')) {
+            return input;
+          }
+
+          const withoutPath = input.split('/')[0];
+          const host = withoutPath.includes('@') ? withoutPath.split('@').pop() : withoutPath;
+          const hostWithoutPort = host.split(':')[0];
+
+          const isLocalhost = hostWithoutPort === 'localhost';
+          const isIp = (() => {
+            const parts = hostWithoutPort.split('.');
+            if (parts.length !== 4) return false;
+            return parts.every(part => {
+              if (part.length === 0) return false;
+              const num = Number(part);
+              return Number.isInteger(num) && num >= 0 && num <= 255;
+            });
+          })();
+          const looksLikeDomain = hostWithoutPort.includes('.') && !hostWithoutPort.includes(' ');
+
+          if (isLocalhost || isIp) {
+            return 'http://' + input;
+          }
+
+          if (looksLikeDomain) {
+            return 'https://' + input;
+          }
+
+          return DEFAULT_SEARCH_URL + encodeURIComponent(input);
+        };
+
+        urlInput.addEventListener('focus', () => {
+          urlInput.select();
+        });
+
         urlInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') {
-            let input = urlInput.value.trim();
-            let url;
-
-            // Check if it looks like a URL or a search query
-            if (input.startsWith('http://') || input.startsWith('https://')) {
-              // It's already a URL
-              url = input;
-            } else if (input.includes('.') && !input.includes(' ') && input.split('.')[1]?.length >= 2) {
-              // Looks like a domain (has a dot and no spaces)
-              url = 'https://' + input;
-            } else {
-              // Treat as search query
-              url = 'https://www.google.com/search?q=' + encodeURIComponent(input);
-            }
-
+            const url = normalizeInputToUrl(urlInput.value);
+            if (!url) return;
             ipcRenderer.send('nav-to', url);
           }
         });
@@ -145,6 +177,32 @@ function createWindow() {
       nodeIntegration: true, // Needed for preload to use node modules
     }
   });
+
+  if (!cspStripperInstalled) {
+    cspStripperInstalled = true;
+    const session = browserView.webContents.session;
+    session.webRequest.onHeadersReceived((details, callback) => {
+      const headers = details.responseHeaders || {};
+      const strippedHeaders: Record<string, string[] | string> = {};
+
+      Object.keys(headers).forEach((key) => {
+        const lowerKey = key.toLowerCase();
+        if (
+          lowerKey === 'content-security-policy' ||
+          lowerKey === 'content-security-policy-report-only' ||
+          lowerKey === 'x-webkit-csp'
+        ) {
+          return;
+        }
+        strippedHeaders[key] = headers[key] as string[] | string;
+      });
+
+      callback({ responseHeaders: strippedHeaders });
+    });
+  }
+
+  // Use a standard Chrome UA to avoid Google "sorry" blocks
+  browserView.webContents.setUserAgent(DEFAULT_USER_AGENT);
 
   // Set dark background to prevent white flash
   browserView.setBackgroundColor('#0b0b0c');
@@ -206,8 +264,10 @@ function createWindow() {
     });
   }
 
-  // Open DevTools for debugging
-  browserView.webContents.openDevTools({ mode: 'detach' });
+  // Open DevTools only when explicitly requested
+  if (process.env.BORING_DEVTOOLS === '1') {
+    browserView.webContents.openDevTools({ mode: 'detach' });
+  }
 
   // Forward console logs from BrowserView to terminal
   browserView.webContents.on('console-message', (event, level, message, line, sourceId) => {
@@ -259,11 +319,18 @@ ipcMain.handle(IPC_CHANNELS.GET_MINIMAL_MODE, () => {
   return minimalModeEnabled;
 });
 
+ipcMain.on(IPC_CHANNELS.GET_MINIMAL_MODE_SYNC, (event) => {
+  event.returnValue = minimalModeEnabled;
+});
+
 ipcMain.on(IPC_CHANNELS.LOG, (event, ...args) => {
   console.log('[Preload]', ...args);
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  app.userAgentFallback = DEFAULT_USER_AGENT;
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

@@ -26,6 +26,39 @@ export interface VideoPageData {
   modeLabel?: string;
 }
 
+export interface FallbackPageData {
+  url: string;
+}
+
+export type TemplateId = 'list' | 'article' | 'video' | 'fallback';
+
+export type TemplateDataMap = {
+  list: ListPageData;
+  article: ArticlePageData;
+  video: VideoPageData;
+  fallback: FallbackPageData;
+};
+
+export type TemplateResult<T extends TemplateId = TemplateId> = {
+  template: T;
+  data: TemplateDataMap[T];
+  postRender?: () => void;
+};
+
+export function renderTemplate(result: TemplateResult): string {
+  switch (result.template) {
+    case 'list':
+      return renderListPage(result.data);
+    case 'article':
+      return renderArticlePage(result.data);
+    case 'video':
+      return renderVideoPage(result.data);
+    case 'fallback':
+    default:
+      return renderFallback(result.data.url);
+  }
+}
+
 export function renderListPage(data: ListPageData): string {
   const searchBoxHTML = data.searchBox ? `
     <input
@@ -87,21 +120,18 @@ export function renderArticlePage(data: ArticlePageData): string {
 }
 
 export function renderVideoPage(data: VideoPageData): string {
-  const titleHTML = data.title ? `
-    <h1 class="boring-video-title">${escapeHtml(data.title)}</h1>
-  ` : '';
-
   return `
-    <div class="boring-container">
+    <div class="boring-container boring-video-only">
       <div class="boring-header">
         <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'Video View'}</span>
-      </div>
-      <div class="boring-video-container">
-        ${titleHTML}
-        <div class="boring-player-wrapper">
-          ${data.playerHTML}
+        <div class="boring-header-actions">
+          <span class="boring-mode-label">${data.modeLabel || 'Video'}</span>
+          <button class="boring-action-btn" data-action="theater">Theater</button>
+          <button class="boring-action-btn" data-action="fullscreen">Fullscreen</button>
         </div>
+      </div>
+      <div class="boring-player-wrapper">
+        ${data.playerHTML}
       </div>
     </div>
   `;
