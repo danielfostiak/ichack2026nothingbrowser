@@ -1,4 +1,5 @@
 import { app, BrowserWindow, BrowserView, ipcMain, WebContents } from 'electron';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { IPC_CHANNELS } from './ipc';
 
@@ -317,6 +318,24 @@ function createWindow() {
   mainWindow = new BrowserWindow(windowOptions);
   mainWindow.setTitle('');
 
+  const logoCandidates = [
+    path.join(__dirname, 'assets', 'logo_small.png'),
+    path.join(process.cwd(), 'assets', 'logo_small.png'),
+    path.join(__dirname, 'assets', 'logo.png'),
+    path.join(process.cwd(), 'assets', 'logo.png')
+  ];
+  let logoDataUrl = '';
+  for (const candidate of logoCandidates) {
+    if (fs.existsSync(candidate)) {
+      const buffer = fs.readFileSync(candidate);
+      logoDataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
+      break;
+    }
+  }
+  const minimalToggleInner = logoDataUrl
+    ? `<img src="${logoDataUrl}" alt="" aria-hidden="true">`
+    : '<span class="fallback-text">minimal</span>';
+
   // Create the browser chrome UI
   const chromeHTML = `
     <!DOCTYPE html>
@@ -368,6 +387,7 @@ function createWindow() {
         }
         :root {
           --tab-height: 32px;
+          --control-height: 36px;
         }
         .tabs {
           display: flex;
@@ -430,7 +450,33 @@ function createWindow() {
           position: relative;
           top: -1px;
         }
-        input {
+        #minimal-toggle {
+          width: var(--control-height);
+          height: var(--control-height);
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        #minimal-toggle img {
+          width: 100%;
+          height: 100%;
+          max-width: none;
+          object-fit: cover;
+          display: block;
+          filter: none;
+          transform: scale(2);
+          transform-origin: center;
+        }
+        #minimal-toggle .fallback-text {
+          font-size: 11px;
+          text-transform: lowercase;
+        }
+        #minimal-toggle.active img {
+          filter: none;
+        }
+        .toolbar input {
           -webkit-app-region: no-drag;
           flex: 1;
           background: #2a2a2c;
@@ -440,17 +486,24 @@ function createWindow() {
           border-radius: 6px;
           font-size: 13px;
           outline: none;
+          height: var(--control-height);
         }
-        input:focus { border-color: #007acc; }
+        .toolbar input:focus { border-color: #007acc; }
         .nav-group { display: flex; gap: 4px; }
         .toolbar {
           display: flex;
           align-items: center;
           gap: 8px;
         }
+        .toolbar button {
+          height: var(--control-height);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
         #explain-toggle {
-          width: 34px;
-          padding: 6px 0;
+          width: var(--control-height);
+          padding: 0;
           font-weight: 700;
           text-align: center;
         }
@@ -468,7 +521,7 @@ function createWindow() {
           <button id="refresh" title="refresh">⟳</button>
         </div>
         <input type="text" id="url" placeholder="enter url...">
-        <button id="minimal-toggle" class="active">minimal mode</button>
+        <button id="minimal-toggle" class="active" aria-label="minimal mode" title="minimal mode">${minimalToggleInner}</button>
         <button id="explain-toggle" title="explain">?</button>
       </div>
       <script>
@@ -655,10 +708,12 @@ function createWindow() {
         ipcRenderer.on('minimal-mode-changed', (event, enabled) => {
           if (enabled) {
             minimalToggle.classList.add('active');
-            minimalToggle.textContent = 'minimal mode';
+            minimalToggle.setAttribute('aria-label', 'minimal mode');
+            minimalToggle.title = 'minimal mode';
           } else {
             minimalToggle.classList.remove('active');
-            minimalToggle.textContent = 'normal mode';
+            minimalToggle.setAttribute('aria-label', 'normal mode');
+            minimalToggle.title = 'normal mode';
           }
         });
 
