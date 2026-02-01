@@ -31,14 +31,22 @@ esbuild.build({
   fs.copyFileSync(srcHtml, distHtml);
   console.log('✓ Homepage HTML copied');
 
-  // Copy videoplayback.mp4
-  const srcVideo = path.join(__dirname, 'assets/videoplayback.mp4');
-  const distVideo = path.join(__dirname, 'dist/videoplayback.mp4');
-  if (fs.existsSync(srcVideo)) {
-    fs.copyFileSync(srcVideo, distVideo);
-    console.log('✓ Video file copied');
+  // Copy video files
+  const videoFiles = ['videoplayback.mp4', 'rat.mp4', 'elon.mp4'];
+  let videoCount = 0;
+  videoFiles.forEach(filename => {
+    const srcVideo = path.join(__dirname, 'assets', filename);
+    const distVideo = path.join(__dirname, 'dist', filename);
+    if (fs.existsSync(srcVideo)) {
+      fs.copyFileSync(srcVideo, distVideo);
+      videoCount++;
+    }
+  });
+
+  if (videoCount > 0) {
+    console.log(`✓ ${videoCount} video file(s) copied`);
   } else {
-    console.warn('⚠ Video file not found at assets/videoplayback.mp4');
+    console.warn('⚠ No video files found in assets/');
   }
 
   // Copy ASOS shoe images

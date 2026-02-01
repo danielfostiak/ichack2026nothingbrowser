@@ -167,7 +167,7 @@
 
       const modeLabel = document.createElement('span');
       modeLabel.className = 'video-mode-label';
-      modeLabel.textContent = 'Video (Demo)';
+      modeLabel.textContent = 'Video';
 
       header.appendChild(backBtn);
       header.appendChild(modeLabel);
@@ -188,7 +188,29 @@
       try {
         const fs = require('fs');
         const path = require('path');
-        const videoPath = path.join(__dirname, 'videoplayback.mp4');
+
+        // Map video IDs to video files
+        const videoMap: { [key: string]: string } = {
+          'FAKE_VIDEO_4': 'rat.mp4',      // Rats have a slap fight
+          'FAKE_VIDEO_8': 'elon.mp4',     // Elons SpaceX Tour - Offices
+        };
+
+        console.log('[Boring Browser] Video ID received:', videoId);
+        console.log('[Boring Browser] Video map:', videoMap);
+        console.log('[Boring Browser] Is video ID in map?:', videoId in videoMap);
+
+        // Get video file based on URL video ID
+        let videoFile = 'videoplayback.mp4'; // Default
+        if (videoId && videoMap[videoId]) {
+          videoFile = videoMap[videoId];
+          console.log('[Boring Browser] Mapped to:', videoFile);
+        } else {
+          console.log('[Boring Browser] Using default:', videoFile);
+        }
+
+        console.log('[Boring Browser] Final video file to load:', videoFile);
+
+        const videoPath = path.join(__dirname, videoFile);
         const videoBuffer = fs.readFileSync(videoPath);
         const blob = new Blob([videoBuffer], { type: 'video/mp4' });
         const blobUrl = URL.createObjectURL(blob);
@@ -327,7 +349,7 @@
 
       const modeLabel = document.createElement('span');
       modeLabel.className = 'boring-mode-label';
-      modeLabel.textContent = 'Videos (Demo)';
+      modeLabel.textContent = 'Videos';
 
       header.appendChild(backBtn);
       header.appendChild(modeLabel);
@@ -348,17 +370,57 @@
       ul.className = 'boring-list';
 
       const videos = [
-        { title: 'Building a Browser from Scratch - Complete Tutorial', href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-        { title: 'Electron App Development - Best Practices 2026', href: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
-        { title: 'TypeScript Advanced Patterns - Full Course', href: 'https://www.youtube.com/watch?v=9bZkp7q19f0' },
-        { title: 'Web Performance Optimization Techniques', href: 'https://www.youtube.com/watch?v=kxT8-C1vmd8' },
-        { title: 'Modern CSS Layout - Complete Guide', href: 'https://www.youtube.com/watch?v=L4CR-c2_2L0' },
-        { title: 'JavaScript Runtime Deep Dive', href: 'https://www.youtube.com/watch?v=8aGhZQkoFbQ' },
-        { title: 'Building Minimal UIs - Design Philosophy', href: 'https://www.youtube.com/watch?v=hFmr3r4dUNs' },
-        { title: 'Content Security Policy Explained', href: 'https://www.youtube.com/watch?v=3JvuKT9jftk' },
-        { title: 'DOM Manipulation Performance Tips', href: 'https://www.youtube.com/watch?v=tJa5fJ-hjk0' },
-        { title: 'Zero-Flicker Page Transitions', href: 'https://www.youtube.com/watch?v=L2vS_050c-M' }
-      ];
+    {
+      title: 'The wild rise of OpenClaw...',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_1',
+      videoFile: 'videoplayback.mp4'
+    },
+    {
+      title: 'Top 10 Most Heated Debates of 2025 | Surrounded',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_2',
+      videoFile: 'videoplayback.mp4'
+    },
+    {
+      title: 'malloc, calloc, free from scratch in C',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_3',
+      videoFile: 'videoplayback.mp4'
+    },
+    {
+      title: 'Elons SpaceX Tour - Offices',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_4',
+      videoFile: 'rat.mp4'
+    },
+    {
+      title: 'Most insane poker hand ever',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_5',
+      videoFile: 'videoplayback.mp4'
+    },
+    {
+      title: 'Jon Jones vs Daniel Cormier | FULL FIGHT',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_6',
+      videoFile: 'videoplayback.mp4'
+    },
+    {
+      title: 'Entire History of London in 24 Minutes',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_7',
+      videoFile: 'videoplayback.mp4'
+    },
+    {
+      title: 'Me at the zoo',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_8',
+      videoFile: 'elon.mp4'
+    },
+    {
+      title: 'DELETED SCENES - THE INBETWEENERS MOVIE',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_9',
+      videoFile: 'videoplayback.mp4'
+    },
+    {
+      title: 'I thought I could code chess',
+      href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_10',
+      videoFile: 'videoplayback.mp4'
+    }
+  ];
 
       videos.forEach(video => {
         const li = document.createElement('li');
@@ -638,7 +700,7 @@
 
         const modeLabel = document.createElement('span');
         modeLabel.className = 'boring-mode-label';
-        modeLabel.textContent = `Shopping ${showingCart ? '(Cart)' : '(Demo)'}`;
+        modeLabel.textContent = showingCart ? 'Cart' : 'Shopping';
 
         header.appendChild(backBtn);
         header.appendChild(modeLabel);
@@ -717,7 +779,7 @@
           const checkoutBtn = cartContainer.querySelector('.asos-checkout-btn');
           if (checkoutBtn) {
             checkoutBtn.addEventListener('click', () => {
-              alert('Checkout complete! (Demo)');
+              alert('Checkout complete!');
               saveCart([]);
               render();
             });

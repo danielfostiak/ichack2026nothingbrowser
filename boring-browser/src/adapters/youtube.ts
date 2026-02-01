@@ -7,43 +7,43 @@ export function extractYouTubeList(doc: Document, url: string): ListPageData {
   // User can customize these fake videos
   const fakeVideos: ListItem[] = [
     {
-      title: 'Building a Browser from Scratch - Complete Tutorial',
+      title: 'The wild rise of OpenClaw...',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_1'
     },
     {
-      title: 'Electron App Development - Best Practices 2026',
+      title: 'Top 10 Most Heated Debates of 2025 | Surrounded',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_2'
     },
     {
-      title: 'TypeScript Advanced Patterns - Full Course',
+      title: 'malloc, calloc, free from scratch in C',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_3'
     },
     {
-      title: 'Web Performance Optimization Techniques',
+      title: 'Rats have a slap fight',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_4'
     },
     {
-      title: 'Modern CSS Layout - Complete Guide',
+      title: 'Most insane poker hand ever',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_5'
     },
     {
-      title: 'JavaScript Runtime Deep Dive',
+      title: 'Jon Jones vs Daniel Cormier | FULL FIGHT',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_6'
     },
     {
-      title: 'Building Minimal UIs - Design Philosophy',
+      title: 'Entire History of London in 24 Minutes',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_7'
     },
     {
-      title: 'Content Security Policy Explained',
+      title: 'Elons SpaceX Tour - Offices',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_8'
     },
     {
-      title: 'DOM Manipulation Performance Tips',
+      title: 'DELETED SCENES - THE INBETWEENERS MOVIE',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_9'
     },
     {
-      title: 'Zero-Flicker Page Transitions',
+      title: 'I thought I could code chess',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_10'
     }
   ];
