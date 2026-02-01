@@ -50,6 +50,164 @@ function extractText(value: any): string | undefined {
   return undefined;
 }
 
+function parseSrcset(value: string): string | undefined {
+  if (!value) return undefined;
+  const first = value.split(',')[0]?.trim();
+  if (!first) return undefined;
+  return first.split(' ')[0]?.trim() || undefined;
+}
+
+function extractImageValue(value: any, node: any): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    return resolveImageTemplate(value, node);
+  }
+  if (Array.isArray(value)) {
+    const first = value.find(v => typeof v === 'string');
+    return first ? resolveImageTemplate(first, node) : undefined;
+  }
+  if (typeof value === 'object') {
+    if (typeof value.url === 'string') return resolveImageTemplate(value.url, node);
+    if (typeof value.src === 'string') return resolveImageTemplate(value.src, node);
+    if (typeof value.urlTemplate === 'string') return resolveImageTemplate(value.urlTemplate, node);
+    if (typeof value.imageUrlTemplate === 'string') return resolveImageTemplate(value.imageUrlTemplate, node);
+  }
+  return undefined;
+}
+
+function resolveImageTemplate(template: string, node: any): string {
+  let resolved = template;
+  const imageId =
+    node?.imageId ||
+    node?.imageID ||
+    node?.image?.id ||
+    node?.image?.imageId ||
+    node?.media?.images?.[0]?.id ||
+    node?.media?.images?.[0]?.imageId ||
+    node?.colourwayImage?.id ||
+    node?.colourwayImageId ||
+    (Array.isArray(node?.imageIds) ? node.imageIds[0] : node?.imageIds) ||
+    node?.productId ||
+    node?.id;
+
+  const productId = node?.productId || node?.id;
+
+  if (imageId) {
+    resolved = resolved
+      .replace(/\{imageId\}/gi, String(imageId))
+      .replace(/\{image_id\}/gi, String(imageId))
+      .replace(/\{\{imageId\}\}/gi, String(imageId))
+      .replace(/\{\{image_id\}\}/gi, String(imageId))
+      .replace(/\$image\$/gi, String(imageId))
+      .replace(/\$imageid\$/gi, String(imageId))
+      .replace(/\$imageId\$/gi, String(imageId));
+  }
+
+  if (productId) {
+    resolved = resolved
+      .replace(/\{productId\}/gi, String(productId))
+      .replace(/\{product_id\}/gi, String(productId));
+  }
+
+  return resolved;
+}
+
+function extractImageFromElement(img: HTMLImageElement | null): string | undefined {
+  if (!img) return undefined;
+
+  if (img.currentSrc) return img.currentSrc;
+
+  const candidates = [
+    img.getAttribute('src'),
+    img.getAttribute('data-src'),
+    img.getAttribute('data-lazy'),
+    img.getAttribute('data-lazy-src'),
+    img.getAttribute('data-original'),
+    img.getAttribute('data-srcset'),
+    img.getAttribute('srcset'),
+    img.getAttribute('data-image-src'),
+    img.getAttribute('data-image'),
+    img.getAttribute('data-img'),
+    img.getAttribute('data-zoom-image'),
+    img.getAttribute('data-imagesrc'),
+    img.getAttribute('data-image-url')
+  ].filter(Boolean) as string[];
+
+  for (const raw of candidates) {
+    const value = raw.includes(',') ? parseSrcset(raw) || raw : raw;
+    if (value) return value;
+  }
+
+  const styleAttr = img.getAttribute('style') || '';
+  const bgMatch = styleAttr.match(/background-image:\s*url\(["']?([^"')]+)["']?\)/i);
+  if (bgMatch?.[1]) return bgMatch[1];
+
+  return undefined;
+}
+
+function extractImageFromTile(tile: Element | null): string | undefined {
+  if (!tile) return undefined;
+
+  const img = tile.querySelector('img') as HTMLImageElement | null;
+  const fromImg = extractImageFromElement(img);
+  if (fromImg) return fromImg;
+
+  const picture = tile.querySelector('picture');
+  if (picture) {
+    const source = picture.querySelector('source') as HTMLSourceElement | null;
+    const srcset =
+      source?.getAttribute('srcset') ||
+      source?.getAttribute('data-srcset') ||
+      source?.getAttribute('data-src');
+    const parsed = srcset ? parseSrcset(srcset) || srcset : undefined;
+    if (parsed) return parsed;
+  }
+
+  const attrCandidates = [
+    'data-image-url',
+    'data-image',
+    'data-img',
+    'data-thumbnail',
+    'data-thumb',
+    'data-src',
+    'data-srcset',
+    'data-lazy',
+    'data-lazy-src'
+  ];
+  for (const attr of attrCandidates) {
+    const raw = (tile as HTMLElement).getAttribute?.(attr);
+    if (raw) {
+      const parsed = raw.includes(',') ? parseSrcset(raw) || raw : raw;
+      if (parsed) return parsed;
+    }
+  }
+
+  const styleAttr = (tile as HTMLElement).getAttribute?.('style') || '';
+  const bgMatch = styleAttr.match(/background-image:\s*url\(["']?([^"')]+)["']?\)/i);
+  if (bgMatch?.[1]) return bgMatch[1];
+
+  return undefined;
+}
+
+function normalizeTitle(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function extractTitleFromTile(tile: Element, fallbackAnchor?: HTMLAnchorElement | null): string | undefined {
+  const title =
+    (tile.querySelector('[data-auto-id="productTileDescription"]') as HTMLElement | null)?.textContent?.trim() ||
+    (tile.querySelector('[data-testid*="productTileDescription"]') as HTMLElement | null)?.textContent?.trim() ||
+    (tile.querySelector('[data-testid*="productTitle"]') as HTMLElement | null)?.textContent?.trim() ||
+    (tile.querySelector('[data-testid*="productName"]') as HTMLElement | null)?.textContent?.trim() ||
+    (tile.querySelector('[data-qa*="productName"]') as HTMLElement | null)?.textContent?.trim() ||
+    fallbackAnchor?.getAttribute('aria-label')?.trim() ||
+    (tile.querySelector('img') as HTMLImageElement | null)?.alt?.trim() ||
+    fallbackAnchor?.textContent?.trim() ||
+    '';
+
+  return title || undefined;
+}
+
 function extractPrice(value: any): string | undefined {
   if (!value) return undefined;
   if (typeof value === 'string') return value;
@@ -72,15 +230,36 @@ function extractPrice(value: any): string | undefined {
   return undefined;
 }
 
+function extractReviewsValue(node: any): string | undefined {
+  if (!node || typeof node !== 'object') return undefined;
+  const rating =
+    node.rating ??
+    node.ratingValue ??
+    node.averageRating ??
+    node.reviewAverage ??
+    node.review?.ratingValue ??
+    node.reviewRating?.ratingValue;
+  const count =
+    node.reviewCount ??
+    node.ratingCount ??
+    node.totalReviewCount ??
+    node.numberOfReviews;
+
+  if (!rating && !count) return undefined;
+  const ratingText = rating ? `${rating}★` : '';
+  const countText = count ? `(${count})` : '';
+  return `${ratingText} ${countText}`.trim();
+}
 function productFromJsonLd(node: any, base: URL): ShoppingItem | null {
   const name = extractText(node.name);
   const url = extractText(node.url);
   if (!name || !url) return null;
 
-  const image = extractText(node.image);
+  const image = extractImageValue(node.image, node);
   const brand = extractText(node.brand);
   const offers = node.offers || node.offer || node.priceSpecification;
   const price = extractPrice(offers);
+  const reviews = extractReviewsValue(node);
 
   const fullUrl = normalizeUrl(url, base);
   if (!fullUrl) return null;
@@ -90,7 +269,8 @@ function productFromJsonLd(node: any, base: URL): ShoppingItem | null {
     href: fullUrl,
     price,
     brand,
-    image: image ? normalizeUrl(image, base) || image : undefined
+    image: image ? normalizeUrl(image, base) || image : undefined,
+    reviews
   };
 }
 
@@ -183,13 +363,22 @@ function itemsFromNextData(doc: Document, base: URL): ShoppingItem[] {
           node.priceInfo ||
           node.priceSummary
       );
-      const image =
+      const reviews = extractReviewsValue(node);
+      const template =
+        node.imageUrlTemplate ||
+        node.imageTemplate ||
         node.imageUrl ||
         node.image ||
         node.primaryImage ||
         node.mainImage ||
-        node.imageUrlTemplate ||
-        (node.media && node.media.images && node.media.images[0]?.url);
+        node.colourwayImage?.url ||
+        node.colourwayImageUrl ||
+        node.media?.imageUrlTemplate ||
+        node.media?.images?.[0]?.urlTemplate ||
+        node.media?.images?.[0]?.imageUrlTemplate ||
+        node.media?.images?.[0]?.url;
+
+      const image = extractImageValue(template, node);
 
       if (name && url) {
         const fullUrl = normalizeUrl(String(url), base);
@@ -199,7 +388,8 @@ function itemsFromNextData(doc: Document, base: URL): ShoppingItem[] {
             href: fullUrl,
             price,
             brand: brand ? String(brand).trim() : undefined,
-            image: image ? normalizeUrl(String(image), base) || String(image) : undefined
+            image: image ? normalizeUrl(String(image), base) || String(image) : undefined,
+            reviews
           });
         }
       }
@@ -239,16 +429,7 @@ function itemsFromDom(doc: Document, base: URL): ShoppingItem[] {
     const href = normalizeUrl(anchor.getAttribute('href') || '', base);
     if (!href || seen.has(href)) return;
 
-    const title =
-      (tile.querySelector('[data-auto-id="productTileDescription"]') as HTMLElement | null)?.textContent?.trim() ||
-      (tile.querySelector('[data-testid*="productTileDescription"]') as HTMLElement | null)?.textContent?.trim() ||
-      (tile.querySelector('[data-testid*="productTitle"]') as HTMLElement | null)?.textContent?.trim() ||
-      (tile.querySelector('[data-testid*="productName"]') as HTMLElement | null)?.textContent?.trim() ||
-      (tile.querySelector('[data-qa*="productName"]') as HTMLElement | null)?.textContent?.trim() ||
-      anchor.getAttribute('aria-label')?.trim() ||
-      (tile.querySelector('img') as HTMLImageElement | null)?.alt?.trim() ||
-      anchor.textContent?.trim() ||
-      '';
+    const title = extractTitleFromTile(tile, anchor) || '';
     if (!title) return;
 
     const priceText =
@@ -258,17 +439,21 @@ function itemsFromDom(doc: Document, base: URL): ShoppingItem[] {
       (tile.querySelector('[data-auto-id="productTilePrice"] span') as HTMLElement | null)?.textContent?.trim() ||
       '';
 
-    const image =
-      (tile.querySelector('img') as HTMLImageElement | null)?.getAttribute('src') ||
-      (tile.querySelector('img') as HTMLImageElement | null)?.getAttribute('data-src') ||
+    const reviewsText =
+      (tile.querySelector('[data-testid*="rating"]') as HTMLElement | null)?.textContent?.trim() ||
+      (tile.querySelector('[data-qa*="rating"]') as HTMLElement | null)?.textContent?.trim() ||
+      (tile.querySelector('[data-auto-id*="rating"]') as HTMLElement | null)?.textContent?.trim() ||
       undefined;
+
+    const image = extractImageFromTile(tile);
 
     seen.add(href);
     items.push({
       title,
       href,
       price: priceText || undefined,
-      image: image ? normalizeUrl(image, base) || image : undefined
+      image: image ? normalizeUrl(image, base) || image : undefined,
+      reviews: reviewsText
     });
   });
 
@@ -289,10 +474,7 @@ function itemsFromDom(doc: Document, base: URL): ShoppingItem[] {
       '';
     if (!title) return;
 
-    const image =
-      (link.querySelector('img') as HTMLImageElement | null)?.getAttribute('src') ||
-      (link.querySelector('img') as HTMLImageElement | null)?.getAttribute('data-src') ||
-      undefined;
+    const image = extractImageFromTile(link as Element);
 
     seen.add(fullUrl);
     items.push({
@@ -303,6 +485,104 @@ function itemsFromDom(doc: Document, base: URL): ShoppingItem[] {
   });
 
   return items;
+}
+
+function enrichImagesFromDom(items: ShoppingItem[], doc: Document, base: URL) {
+  const imageByHref = new Map<string, string>();
+  const imageByTitle = new Map<string, string>();
+  const imageByPath = new Map<string, string>();
+  const imageByProductId = new Map<string, string>();
+
+  const anchors = doc.querySelectorAll('a[href*="/prd/"], a[href*="/product/"]');
+  anchors.forEach(anchor => {
+    const href = normalizeUrl(anchor.getAttribute('href') || '', base);
+    if (!href) return;
+
+    const tile =
+      (anchor.closest('[data-auto-id="productTile"]') as HTMLElement | null) ||
+      (anchor.closest('[data-testid*="product"]') as HTMLElement | null) ||
+      (anchor.closest('article') as HTMLElement | null) ||
+      (anchor.closest('li') as HTMLElement | null);
+
+    const img =
+      (anchor.querySelector('img') as HTMLImageElement | null) ||
+      (tile?.querySelector('img') as HTMLImageElement | null);
+
+    const image = extractImageFromTile(tile || anchor);
+    if (image) {
+      const normalized = normalizeUrl(image, base) || image;
+      if (!imageByHref.has(href)) {
+        imageByHref.set(href, normalized);
+      }
+
+      const pathKey = (() => {
+        try {
+          const url = new URL(href);
+          return `${url.origin}${url.pathname}`;
+        } catch {
+          return href;
+        }
+      })();
+      if (!imageByPath.has(pathKey)) {
+        imageByPath.set(pathKey, normalized);
+      }
+
+      const productIdMatch = href.match(/\/prd\/(\d+)/i);
+      if (productIdMatch?.[1] && !imageByProductId.has(productIdMatch[1])) {
+        imageByProductId.set(productIdMatch[1], normalized);
+      }
+
+      const title = tile ? extractTitleFromTile(tile, anchor) : undefined;
+      if (title) {
+        const key = normalizeTitle(title);
+        if (!imageByTitle.has(key)) {
+          imageByTitle.set(key, normalized);
+        }
+      }
+    }
+  });
+
+  items.forEach(item => {
+    if (!item.href) return;
+    if (!item.image || item.image.includes('{')) {
+      const match = imageByHref.get(item.href);
+      if (match) {
+        item.image = match;
+        return;
+      }
+
+      const pathKey = (() => {
+        try {
+          const url = new URL(item.href);
+          return `${url.origin}${url.pathname}`;
+        } catch {
+          return item.href;
+        }
+      })();
+      const pathMatch = imageByPath.get(pathKey);
+      if (pathMatch) {
+        item.image = pathMatch;
+        return;
+      }
+
+      const productIdMatch = item.href.match(/\/prd\/(\d+)/i);
+      if (productIdMatch?.[1]) {
+        const productMatch = imageByProductId.get(productIdMatch[1]);
+        if (productMatch) {
+          item.image = productMatch;
+          return;
+        }
+      }
+
+      if (item.title) {
+        const titleMatch = imageByTitle.get(normalizeTitle(item.title));
+        if (titleMatch) {
+          item.image = titleMatch;
+          return;
+        }
+      }
+    }
+  });
 }
 
 function extractCategoryLinks(doc: Document, base: URL): ListItem[] {
@@ -367,6 +647,7 @@ export function extractASOSProducts(doc: Document, url: URL): ShoppingPageData {
   const domItems = jsonLdItems.length === 0 && nextDataItems.length === 0 ? itemsFromDom(doc, base) : [];
 
   const combined = [...jsonLdItems, ...nextDataItems, ...domItems];
+  enrichImagesFromDom(combined, doc, base);
   const items = combined.slice(0, 60);
 
   const pageTitle =
@@ -410,7 +691,7 @@ export const asosAdapter: Adapter = {
           title: data.title || 'ASOS',
           items: categories,
           modeLabel: 'shopping',
-          searchBox: false
+          searchBox: true
         }
       };
     }

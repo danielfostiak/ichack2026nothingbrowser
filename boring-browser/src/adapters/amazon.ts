@@ -51,6 +51,35 @@ function extractText(value: any): string | undefined {
   return undefined;
 }
 
+function normalizePriceText(value: string): string {
+  return value.replace(/\bgbp\b/gi, '£').trim();
+}
+
+function extractReviewsFromNode(node: any): string | undefined {
+  if (!node || typeof node !== 'object') return undefined;
+
+  const rating =
+    node.aggregateRating?.ratingValue ??
+    node.aggregateRating?.rating ??
+    node.rating ??
+    node.ratingValue ??
+    node.averageRating ??
+    node.reviewAverage ??
+    node.reviewRating?.ratingValue;
+
+  const count =
+    node.aggregateRating?.reviewCount ??
+    node.aggregateRating?.ratingCount ??
+    node.reviewCount ??
+    node.ratingCount ??
+    node.totalReviewCount;
+
+  if (!rating && !count) return undefined;
+
+  const ratingText = rating ? `${rating}★` : '';
+  const countText = count ? `(${count})` : '';
+  return `${ratingText} ${countText}`.trim();
+}
 function extractPrice(value: any): string | undefined {
   if (!value) return undefined;
   if (typeof value === 'string') return value;
@@ -91,14 +120,17 @@ function itemsFromJsonLd(nodes: any[], base: URL): ShoppingItem[] {
     if (!href) return null;
     const image = extractText(node.image);
     const brand = extractText(node.brand);
-    const price = extractPrice(node.offers || node.offer || node.priceSpecification);
+    const priceRaw = extractPrice(node.offers || node.offer || node.priceSpecification);
+    const price = priceRaw ? normalizePriceText(priceRaw) : undefined;
+    const reviews = extractReviewsFromNode(node);
 
     return {
       title: name.trim(),
       href,
       image: image ? normalizeUrl(image, base) || image : undefined,
       brand,
-      price
+      price,
+      reviews
     };
   };
 
@@ -173,6 +205,18 @@ function itemsFromDom(doc: Document, base: URL): ShoppingItem[] {
         return whole ? `${whole}${fraction ? `.${fraction}` : ''}` : '';
       })();
 
+    const reviewsText =
+      (card.querySelector('span[aria-label*="out of 5 stars"]') as HTMLElement | null)?.getAttribute('aria-label')?.trim() ||
+      (card.querySelector('span.a-icon-alt') as HTMLElement | null)?.textContent?.trim() ||
+      '';
+    const reviewCount =
+      (card.querySelector('span.a-size-base.s-underline-text') as HTMLElement | null)?.textContent?.trim() ||
+      (card.querySelector('span.a-size-base[dir="auto"]') as HTMLElement | null)?.textContent?.trim() ||
+      '';
+    const ratingMatch = reviewsText.match(/([0-9.]+)/);
+    const ratingValue = ratingMatch ? ratingMatch[1] : '';
+    const reviews = [ratingValue ? `${ratingValue}★` : '', reviewCount ? `(${reviewCount})` : ''].filter(Boolean).join(' ').trim();
+
     const brand =
       (card.querySelector('span.a-size-base.a-color-secondary') as HTMLElement | null)?.textContent?.trim() ||
       (card.querySelector('span.a-size-base-plus.a-color-base') as HTMLElement | null)?.textContent?.trim() ||
@@ -183,8 +227,9 @@ function itemsFromDom(doc: Document, base: URL): ShoppingItem[] {
       title,
       href,
       image,
-      price: price || undefined,
-      brand
+      price: price ? normalizePriceText(price) : undefined,
+      brand,
+      reviews: reviews || undefined
     });
   });
 
@@ -207,12 +252,16 @@ export function extractAmazonProducts(doc: Document, url: URL): ShoppingPageData
     normalizeUrl('/gp/cart/desktop/go-to-checkout.html', base) ||
     `${base.origin}/gp/cart/desktop/go-to-checkout.html`;
 
+  const isSearch = base.pathname.includes('/s') || base.searchParams.has('k');
+  const emptyMessage = !isSearch && items.length === 0 ? '' : undefined;
+
   return {
     title: pageTitle.replace(/\s*Amazon\s*$/i, '').trim() || 'Amazon',
     items,
     modeLabel: 'shopping',
     searchBox: true,
-    checkoutUrl
+    checkoutUrl,
+    emptyMessage
   };
 }
 

@@ -448,6 +448,12 @@ function createWindow() {
           align-items: center;
           gap: 8px;
         }
+        #explain-toggle {
+          width: 34px;
+          padding: 6px 0;
+          font-weight: 700;
+          text-align: center;
+        }
       </style>
     </head>
     <body>
@@ -463,6 +469,7 @@ function createWindow() {
         </div>
         <input type="text" id="url" placeholder="enter url...">
         <button id="minimal-toggle" class="active">minimal mode</button>
+        <button id="explain-toggle" title="explain">?</button>
       </div>
       <script>
         const { ipcRenderer } = require('electron');
@@ -474,6 +481,7 @@ function createWindow() {
         const refreshBtn = document.getElementById('refresh');
         const urlInput = document.getElementById('url');
         const minimalToggle = document.getElementById('minimal-toggle');
+        const explainToggle = document.getElementById('explain-toggle');
 
         document.body.classList.toggle('platform-mac', process.platform === 'darwin');
 
@@ -625,6 +633,9 @@ function createWindow() {
         minimalToggle.addEventListener('click', () => {
           ipcRenderer.send('toggle-minimal');
         });
+        explainToggle.addEventListener('click', () => {
+          ipcRenderer.send('toggle-explain');
+        });
 
         ipcRenderer.on('tabs-updated', (event, state) => {
           if (!state || !Array.isArray(state.tabs)) return;
@@ -735,12 +746,25 @@ function createWindow() {
     });
 
     ipcMain.on('nav-to', (event, url: string) => {
+      const normalizedUrl = url.includes('amazon.co.uk')
+        ? url.replace('amazon.co.uk', 'amazon.com')
+        : url;
       let tab = resolveTabFromSender(event.sender);
       if (!tab) {
         tab = createTab();
         setActiveTab(tab.id);
       }
-      tab.view.webContents.loadURL(url);
+      tab.view.webContents.loadURL(normalizedUrl);
+    });
+
+    ipcMain.on('toggle-explain', () => {
+      const activeTab = getActiveTab();
+      if (!activeTab) return;
+      activeTab.view.webContents.executeJavaScript(`
+        if (window.__boringToggleExplain) {
+          window.__boringToggleExplain();
+        }
+      `);
     });
 
     ipcMain.on('toggle-minimal', () => {

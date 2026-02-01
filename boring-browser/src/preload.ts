@@ -135,10 +135,356 @@ console.log('[Boring Browser] Preload script loaded (veil already applied)!');
 
 let hasTransformed = false;
 let lastUrl = location.href;
+const REMOTE_ADAPTER_SERVER = process.env.BORING_ADAPTER_SERVER || '';
+const REMOTE_ADAPTER_TIMEOUT_MS = Number(process.env.BORING_ADAPTER_TIMEOUT_MS || '150');
+const REMOTE_ADAPTER_CACHE_TTL_MS = Number(process.env.BORING_ADAPTER_CACHE_TTL_MS || String(6 * 60 * 60 * 1000));
+const REMOTE_ADAPTER_STRATEGY = (process.env.BORING_ADAPTER_STRATEGY || 'fast').toLowerCase();
+const REMOTE_ADAPTER_REFRESH_DELAY_MS = Number(process.env.BORING_ADAPTER_REFRESH_DELAY_MS || '2000');
+const REMOTE_ADAPTER_REFRESH_MAX_ATTEMPTS = Number(process.env.BORING_ADAPTER_REFRESH_MAX_ATTEMPTS || '3');
+
+const pendingRemoteRefresh = new Map<string, { timer: number; attempt: number }>();
+
+type RemoteFetchOptions = {
+  allowRetry?: boolean;
+  retryAttempt?: number;
+};
+
+type RemoteFieldSpec =
+  | string
+  | {
+      selector?: string;
+      attr?: string;
+      source?: 'text' | 'html';
+      regex?: string;
+      absolute?: boolean;
+    };
+
+type RemoteAdapterSpec = {
+  id?: string;
+  template: 'list' | 'news' | 'shopping' | 'article' | 'video' | 'fallback';
+  modeLabel?: string;
+  title?: RemoteFieldSpec | string;
+  searchBox?: boolean;
+  itemSelector?: string;
+  fields?: Record<string, RemoteFieldSpec>;
+  content?: RemoteFieldSpec;
+  byline?: RemoteFieldSpec;
+  maxItems?: number;
+  match?: {
+    hostContains?: string[];
+    urlRegex?: string[];
+    pathPrefix?: string[];
+  };
+  updatedAt?: string;
+};
+
+function getAdapterCacheKey(url: URL): string {
+  return `boring-remote-adapter:${url.hostname}`;
+}
+
+function readCachedAdapter(url: URL): RemoteAdapterSpec | null {
+  try {
+    const raw = localStorage.getItem(getAdapterCacheKey(url));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const spec = parsed?.spec as RemoteAdapterSpec | undefined;
+    const updatedAt = parsed?.updatedAt ? Number(parsed.updatedAt) : 0;
+    if (!spec) return null;
+    if (updatedAt && Date.now() - updatedAt > REMOTE_ADAPTER_CACHE_TTL_MS) {
+      return spec;
+    }
+    return spec;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedAdapter(url: URL, spec: RemoteAdapterSpec) {
+  try {
+    localStorage.setItem(
+      getAdapterCacheKey(url),
+      JSON.stringify({ spec, updatedAt: Date.now() })
+    );
+  } catch {
+    // ignore cache failures
+  }
+}
+
+function matchesRemoteSpec(spec: RemoteAdapterSpec, url: URL): boolean {
+  const match = spec.match;
+  if (!match) return true;
+  if (match.hostContains && match.hostContains.length > 0) {
+    const ok = match.hostContains.some((host) => url.hostname.toLowerCase().includes(host.toLowerCase()));
+    if (!ok) return false;
+  }
+  if (match.pathPrefix && match.pathPrefix.length > 0) {
+    const ok = match.pathPrefix.some((prefix) => url.pathname.startsWith(prefix));
+    if (!ok) return false;
+  }
+  if (match.urlRegex && match.urlRegex.length > 0) {
+    const ok = match.urlRegex.some((pattern) => {
+      try {
+        return new RegExp(pattern).test(url.toString());
+      } catch {
+        return false;
+      }
+    });
+    if (!ok) return false;
+  }
+  return true;
+}
+
+async function fetchRemoteAdapterSpec(url: URL): Promise<RemoteAdapterSpec | null> {
+  if (!REMOTE_ADAPTER_SERVER) return null;
+
+  const cached = readCachedAdapter(url);
+  if (cached && matchesRemoteSpec(cached, url)) {
+    // refresh in background if stale
+    const cachedKey = getAdapterCacheKey(url);
+    try {
+      const cachedMeta = localStorage.getItem(cachedKey);
+      const updatedAt = cachedMeta ? JSON.parse(cachedMeta).updatedAt : 0;
+      if (updatedAt && Date.now() - Number(updatedAt) > REMOTE_ADAPTER_CACHE_TTL_MS) {
+        void fetchRemoteAdapterSpecFresh(url);
+      }
+    } catch {
+      // ignore cache parse errors
+    }
+    return cached;
+  }
+
+  return fetchRemoteAdapterSpecFresh(url);
+}
+
+function scheduleRemoteRefresh(url: URL, attempt = 1) {
+  if (attempt > REMOTE_ADAPTER_REFRESH_MAX_ATTEMPTS) return;
+  const key = url.toString();
+  if (pendingRemoteRefresh.has(key)) return;
+
+  const timer = window.setTimeout(async () => {
+    pendingRemoteRefresh.delete(key);
+    const spec = await fetchRemoteAdapterSpecFresh(url, {
+      allowRetry: attempt < REMOTE_ADAPTER_REFRESH_MAX_ATTEMPTS,
+      retryAttempt: attempt + 1
+    });
+    if (spec && location.href === key) {
+      lastUrl = '';
+      hasTransformed = false;
+      performTransformation();
+    }
+  }, REMOTE_ADAPTER_REFRESH_DELAY_MS);
+
+  pendingRemoteRefresh.set(key, { timer, attempt });
+}
+
+async function fetchRemoteAdapterSpecFresh(
+  url: URL,
+  options: RemoteFetchOptions = {}
+): Promise<RemoteAdapterSpec | null> {
+  if (!REMOTE_ADAPTER_SERVER) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REMOTE_ADAPTER_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${REMOTE_ADAPTER_SERVER.replace(/\/$/, '')}/adapter?url=${encodeURIComponent(url.toString())}`, {
+      signal: controller.signal
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    const spec = payload as RemoteAdapterSpec;
+    if (!spec || !spec.template) {
+      if (options.allowRetry && payload?.generating) {
+        scheduleRemoteRefresh(url, options.retryAttempt || 1);
+      }
+      return null;
+    }
+    writeCachedAdapter(url, spec);
+    return spec;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function resolveFieldValue(
+  element: Element,
+  fieldSpec: RemoteFieldSpec | undefined,
+  fieldName: string,
+  baseUrl: URL
+): string | undefined {
+  if (!fieldSpec) return undefined;
+
+  const spec =
+    typeof fieldSpec === 'string'
+      ? { selector: fieldSpec }
+      : fieldSpec;
+
+  const selector = spec.selector;
+  const node = selector ? element.querySelector(selector) : element;
+  if (!node) return undefined;
+
+  const attr = spec.attr;
+  const source = spec.source;
+  let value: string | null | undefined;
+
+  if (attr) {
+    value = (node as HTMLElement).getAttribute(attr);
+  } else if (source === 'html') {
+    value = (node as HTMLElement).innerHTML;
+  } else {
+    value = (node as HTMLElement).textContent;
+  }
+
+  if (!value) return undefined;
+  let finalValue = value.trim();
+
+  if (spec.regex) {
+    try {
+      const match = finalValue.match(new RegExp(spec.regex));
+      if (match) {
+        finalValue = match[1] || match[0];
+      }
+    } catch {
+      // ignore regex errors
+    }
+  }
+
+  const shouldAbsolute =
+    typeof spec.absolute === 'boolean'
+      ? spec.absolute
+      : fieldName === 'href' || fieldName === 'image';
+
+  if (shouldAbsolute && finalValue) {
+    try {
+      finalValue = new URL(finalValue, baseUrl).toString();
+    } catch {
+      // ignore
+    }
+  }
+
+  return finalValue || undefined;
+}
+
+function resolvePageTitle(doc: Document, spec: RemoteAdapterSpec, baseUrl: URL): string {
+  if (typeof spec.title === 'string') return spec.title.toLowerCase();
+  const fallback = doc.title || baseUrl.hostname;
+  const extracted = resolveFieldValue(doc.documentElement, spec.title, 'title', baseUrl);
+  return (extracted || fallback).toLowerCase();
+}
+
+function runRemoteTransform(spec: RemoteAdapterSpec, doc: Document, urlStr: string): AdapterResult | null {
+  try {
+    const url = new URL(urlStr);
+    if (!matchesRemoteSpec(spec, url)) return null;
+
+    const template = spec.template;
+    const modeLabel = spec.modeLabel ? spec.modeLabel.toLowerCase() : undefined;
+    const title = resolvePageTitle(doc, spec, url);
+    const maxItems = spec.maxItems && spec.maxItems > 0 ? spec.maxItems : 60;
+
+    if (template === 'article') {
+      const contentHTML =
+        resolveFieldValue(doc.documentElement, spec.content, 'content', url) ||
+        doc.body?.innerHTML ||
+        '';
+      const byline =
+        resolveFieldValue(doc.documentElement, spec.byline, 'byline', url);
+      return {
+        template: 'article',
+        data: {
+          title,
+          byline,
+          contentHTML,
+          modeLabel
+        }
+      };
+    }
+
+    if (template === 'list' || template === 'news' || template === 'shopping') {
+      const itemSelector = spec.itemSelector;
+      if (!itemSelector) return null;
+      const nodes = Array.from(doc.querySelectorAll(itemSelector));
+      const items = nodes.slice(0, maxItems).map((node) => {
+        const data: Record<string, string | undefined> = {};
+        if (spec.fields) {
+          Object.keys(spec.fields).forEach((field) => {
+            data[field] = resolveFieldValue(node, spec.fields?.[field], field, url);
+          });
+        }
+        return data;
+      }).filter((item) => item.title || item.href);
+
+      if (template === 'list') {
+        return {
+          template: 'list',
+          data: {
+            title,
+            items: items.map((item) => ({
+              title: (item.title || '').toLowerCase(),
+              href: item.href || url.toString(),
+              image: item.image,
+              meta: item.meta ? item.meta.toLowerCase() : undefined
+            })),
+            modeLabel,
+            searchBox: spec.searchBox !== false
+          }
+        };
+      }
+
+      if (template === 'news') {
+        return {
+          template: 'news',
+          data: {
+            title,
+            items: items.map((item) => ({
+              title: (item.title || '').toLowerCase(),
+              href: item.href || url.toString(),
+              source: item.source ? item.source.toLowerCase() : undefined,
+              time: item.time ? item.time.toLowerCase() : undefined
+            })),
+            modeLabel,
+            searchBox: spec.searchBox !== false
+          }
+        };
+      }
+
+      if (template === 'shopping') {
+        return {
+          template: 'shopping',
+          data: {
+            title,
+            items: items.map((item) => ({
+              title: (item.title || '').toLowerCase(),
+              href: item.href || url.toString(),
+              price: item.price ? item.price.toLowerCase() : undefined,
+              brand: item.brand ? item.brand.toLowerCase() : undefined,
+              image: item.image
+            })),
+            modeLabel,
+            searchBox: spec.searchBox !== false
+          }
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('[Boring Browser] Remote adapter failed:', error);
+  }
+
+  return null;
+}
 
 // Main transformation function
 async function performTransformation() {
   console.log('[Boring Browser] performTransformation called for:', location.href);
+
+  if (location.hostname.includes('amazon.co.uk')) {
+    const redirected = location.href.replace('amazon.co.uk', 'amazon.com');
+    if (redirected !== location.href) {
+      window.location.replace(redirected);
+      return;
+    }
+  }
 
   const checkoutBypass =
     (window as any).__boringCheckoutBypass ||
@@ -213,6 +559,14 @@ async function performTransformation() {
       return;
     }
 
+    // Prevent late document.write calls from remote scripts once we transform.
+    try {
+      document.write = () => {};
+      document.writeln = () => {};
+    } catch {
+      // ignore
+    }
+
     const fastPath = (window as any).__boringFastPath as string | undefined;
     let youtubePlayer: HTMLElement | null = null;
 
@@ -247,6 +601,20 @@ async function performTransformation() {
         };
         const hasResults = await waitForAmazonResults();
         console.log('[Boring Browser] Amazon results available:', hasResults);
+      }
+
+      // Stop remote scripts for noisy sites before we replace the DOM.
+      if (location.hostname.includes('amazon.') || location.hostname.includes('asos.com')) {
+        try {
+          window.stop();
+        } catch {
+          // ignore
+        }
+        try {
+          document.querySelectorAll('script').forEach(script => script.remove());
+        } catch {
+          // ignore
+        }
       }
     } else {
       console.log('[Boring Browser] Fast path enabled, skipping DOM wait');
@@ -299,7 +667,48 @@ async function performTransformation() {
 
     // Run the transformation
     console.log('[Boring Browser] Running transformation...');
-    const transformResult = runTransform(location.href, document);
+    const urlObj = new URL(location.href);
+    let transformResult: AdapterResult | null = null;
+
+    if (REMOTE_ADAPTER_SERVER && REMOTE_ADAPTER_STRATEGY === 'remote-first') {
+      const remoteSpec = await fetchRemoteAdapterSpec(urlObj);
+      const remoteResult = remoteSpec ? runRemoteTransform(remoteSpec, document, location.href) : null;
+      if (remoteResult) {
+        transformResult = remoteResult;
+        console.log('[Boring Browser] Remote adapter applied');
+      }
+    }
+
+    if (!transformResult && REMOTE_ADAPTER_STRATEGY !== 'remote-first') {
+      const cachedRemote = readCachedAdapter(urlObj);
+      if (cachedRemote && matchesRemoteSpec(cachedRemote, urlObj)) {
+        const cachedResult = runRemoteTransform(cachedRemote, document, location.href);
+        if (cachedResult) {
+          transformResult = cachedResult;
+          console.log('[Boring Browser] Remote adapter applied (cached)');
+        }
+      }
+    }
+
+    if (!transformResult) {
+      const localResult = runTransform(location.href, document);
+      transformResult = localResult;
+
+      if (REMOTE_ADAPTER_SERVER && localResult.template === 'fallback') {
+        if (REMOTE_ADAPTER_STRATEGY === 'balanced') {
+          const remoteSpec = await fetchRemoteAdapterSpec(urlObj);
+          const remoteResult = remoteSpec ? runRemoteTransform(remoteSpec, document, location.href) : null;
+          if (remoteResult) {
+            transformResult = remoteResult;
+            console.log('[Boring Browser] Remote adapter applied');
+          } else {
+            void fetchRemoteAdapterSpecFresh(urlObj, { allowRetry: true, retryAttempt: 1 });
+          }
+        } else if (REMOTE_ADAPTER_STRATEGY === 'fast') {
+          void fetchRemoteAdapterSpecFresh(urlObj, { allowRetry: true, retryAttempt: 1 });
+        }
+      }
+    }
     console.log('[Boring Browser] Adapter result:', transformResult.template);
 
     const isFallbackCleanup = transformResult.template === 'fallback';
@@ -1465,6 +1874,14 @@ function updateExplainPanel() {
   }
 }
 
+function toggleExplainPanel() {
+  if (!document.body) return;
+  document.body.classList.toggle('boring-explain-open');
+  updateExplainPanel();
+}
+
+(window as any).__boringToggleExplain = toggleExplainPanel;
+
 type BasketItem = {
   id: string;
   title: string;
@@ -1661,8 +2078,7 @@ function setupSearchHandler() {
         if (currentUrl.includes('youtube.com')) {
           window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
         } else if (currentUrl.includes('amazon.')) {
-          const origin = window.location.origin;
-          window.location.href = `${origin}/s?k=${encodeURIComponent(query)}`;
+          window.location.href = `https://www.amazon.com/s?k=${encodeURIComponent(query)}`;
         } else if (currentUrl.includes('asos.com')) {
           const origin = window.location.origin;
           window.location.href = `${origin}/search/?q=${encodeURIComponent(query)}`;

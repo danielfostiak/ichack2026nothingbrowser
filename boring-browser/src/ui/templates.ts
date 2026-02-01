@@ -13,6 +13,7 @@ export interface ShoppingItem {
   price?: string;
   brand?: string;
   image?: string;
+  reviews?: string;
 }
 
 export interface NewsItem {
@@ -35,6 +36,7 @@ export interface ShoppingPageData {
   modeLabel?: string;
   searchBox?: boolean;
   checkoutUrl?: string;
+  emptyMessage?: string | null;
 }
 
 export interface NewsPageData {
@@ -96,9 +98,7 @@ export function renderTemplate(result: TemplateResult): string {
   }
 }
 
-const explainButtonHTML = `
-  <button class="boring-explain-btn" data-action="toggle-explain">explain</button>
-`;
+const explainButtonHTML = '';
 
 function renderToolbarRow(searchHTML?: string): string {
   const hasSearch = !!(searchHTML && searchHTML.trim());
@@ -199,9 +199,14 @@ export function renderShoppingPage(data: ShoppingPageData): string {
       </div>
     ` : '';
 
+    const brandText = cleanShoppingMetaText(item.brand);
+    const brandHTML = brandText ? `
+      <div class="boring-shopping-brand">${escapeHtml(brandText)}</div>
+    ` : '';
+
     const metaParts = [
-      item.brand ? `<span class="boring-shopping-brand">${escapeHtml(item.brand)}</span>` : '',
-      item.price ? `<span class="boring-shopping-price">${escapeHtml(item.price)}</span>` : ''
+      item.price ? `<span class="boring-shopping-price">${escapeHtml(item.price)}</span>` : '',
+      item.reviews ? `<span class="boring-shopping-reviews">${escapeHtml(item.reviews)}</span>` : ''
     ].filter(Boolean).join('');
 
     const metaHTML = metaParts ? `
@@ -213,6 +218,7 @@ export function renderShoppingPage(data: ShoppingPageData): string {
         ${imageHTML}
         <div class="boring-shopping-info">
           <div class="boring-shopping-title">${escapeHtml(item.title)}</div>
+          ${brandHTML}
           ${metaHTML}
         </div>
         <button
@@ -231,8 +237,12 @@ export function renderShoppingPage(data: ShoppingPageData): string {
     `;
   }).join('');
 
-  const emptyHTML = data.items.length === 0
-    ? `<div class="boring-shopping-empty">no products found yet.</div>`
+  const emptyMessage =
+    data.emptyMessage === null || data.emptyMessage === ''
+      ? ''
+      : (data.emptyMessage || 'no products found yet.');
+  const emptyHTML = data.items.length === 0 && emptyMessage
+    ? `<div class="boring-shopping-empty">${escapeHtml(emptyMessage)}</div>`
     : '';
 
   const checkoutUrl = data.checkoutUrl ? escapeHtml(data.checkoutUrl) : '';
@@ -379,4 +389,30 @@ function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function cleanShoppingMetaText(value?: string): string | undefined {
+  if (!value) return undefined;
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text) return undefined;
+  const lower = text.toLowerCase();
+  const blacklist = [
+    'new on amazon',
+    'new on',
+    'new arrival',
+    'new in',
+    'sponsored',
+    'sponsor',
+    'prime',
+    'limited time deal',
+    'deal of the day',
+    'amazon\'s choice',
+    'editors pick',
+    'best seller',
+    'bestseller'
+  ];
+  if (blacklist.some(term => lower.includes(term))) {
+    return undefined;
+  }
+  return text;
 }
