@@ -388,6 +388,478 @@
     return;
   }
 
+  // FAKE ASOS IMMEDIATELY - Shopping with cart functionality
+  if (location.hostname.includes('asos.com')) {
+    console.log('[Boring Browser] ASOS detected - injecting fake ASOS immediately');
+
+    // Apply immediate veil to hide ASOS while we build our fake page
+    const applyASOSVeil = () => {
+      const veilStyle = document.createElement('style');
+      veilStyle.id = 'asos-veil';
+      veilStyle.textContent = `
+        * { visibility: hidden !important; }
+        html, body {
+          background: #0b0b0c !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+      `;
+      if (document.head) {
+        document.head.appendChild(veilStyle);
+      } else if (document.documentElement) {
+        document.documentElement.appendChild(veilStyle);
+      }
+    };
+
+    // Apply veil immediately
+    applyASOSVeil();
+
+    const buildFakeASOS = () => {
+      if (!document.body) {
+        setTimeout(buildFakeASOS, 50);
+        return;
+      }
+
+      console.log('[Boring Browser] Building fake ASOS...');
+
+      // CRITICAL: Stop ASOS from loading any further
+      window.stop();
+
+      // Remove the veil
+      const veil = document.getElementById('asos-veil');
+      if (veil) {
+        veil.remove();
+      }
+
+      // Initialize cart from localStorage
+      const getCart = () => {
+        try {
+          return JSON.parse(localStorage.getItem('asos-cart') || '[]');
+        } catch {
+          return [];
+        }
+      };
+
+      const saveCart = (cart: any[]) => {
+        localStorage.setItem('asos-cart', JSON.stringify(cart));
+      };
+
+      const addToCart = (product: any) => {
+        const cart = getCart();
+        const existing = cart.find((item: any) => item.id === product.id);
+        if (existing) {
+          existing.quantity += 1;
+        } else {
+          cart.push({ ...product, quantity: 1 });
+        }
+        saveCart(cart);
+        updateCartBadge();
+      };
+
+      const updateCartBadge = () => {
+        const cart = getCart();
+        const total = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
+        const badge = document.getElementById('cart-count');
+        if (badge) {
+          badge.textContent = total.toString();
+          badge.style.display = total > 0 ? 'flex' : 'none';
+        }
+      };
+
+      // Hardcoded products - mixed items initially, shoes for search demo
+      const allProducts = [
+        { id: 1, title: 'Classic Denim Jacket', price: 89.99, image: 'asos-shoe-1.jpg', category: 'clothing' },
+        { id: 2, title: 'Slim Fit Chinos', price: 119.99, image: 'asos-shoe-2.jpg', category: 'clothing' },
+        { id: 3, title: 'Casual Cotton T-Shirt', price: 29.99, image: 'asos-shoe-3.jpg', category: 'clothing' },
+        { id: 4, title: 'Summer Dress', price: 79.99, image: 'asos-shoe-4.jpg', category: 'clothing' },
+        { id: 5, title: 'Wool Blend Sweater', price: 99.99, image: 'asos-shoe-5.jpg', category: 'clothing' },
+        { id: 6, title: 'Leather Belt', price: 39.99, image: 'asos-shoe-6.jpg', category: 'accessories' },
+        { id: 7, title: 'Designer Watch', price: 179.99, image: 'asos-shoe-7.jpg', category: 'accessories' },
+        { id: 8, title: 'Canvas Backpack', price: 59.99, image: 'asos-shoe-8.jpg', category: 'accessories' },
+        { id: 9, title: 'Classic Black Sneakers', price: 89.99, image: 'asos-shoe-1.jpg', category: 'shoes' },
+        { id: 10, title: 'White Running Shoes', price: 119.99, image: 'asos-shoe-2.jpg', category: 'shoes' },
+        { id: 11, title: 'Leather Boots', price: 149.99, image: 'asos-shoe-3.jpg', category: 'shoes' },
+        { id: 12, title: 'Summer Sandals', price: 59.99, image: 'asos-shoe-4.jpg', category: 'shoes' },
+        { id: 13, title: 'High Top Trainers', price: 99.99, image: 'asos-shoe-5.jpg', category: 'shoes' },
+        { id: 14, title: 'Canvas Slip-Ons', price: 69.99, image: 'asos-shoe-6.jpg', category: 'shoes' },
+        { id: 15, title: 'Designer Heels', price: 179.99, image: 'asos-shoe-7.jpg', category: 'shoes' },
+        { id: 16, title: 'Sports Trainers', price: 109.99, image: 'asos-shoe-8.jpg', category: 'shoes' },
+      ];
+
+      let currentSearch = '';
+      let showingCart = false;
+
+      const renderProducts = (ul: HTMLElement) => {
+        let filtered;
+        if (currentSearch) {
+          filtered = allProducts.filter(p =>
+            p.title.toLowerCase().includes(currentSearch.toLowerCase()) ||
+            p.category.toLowerCase().includes(currentSearch.toLowerCase())
+          );
+        } else {
+          filtered = allProducts.slice(0, 8);
+        }
+
+        ul.innerHTML = '';
+
+        if (filtered.length === 0) {
+          const li = document.createElement('li');
+          li.className = 'boring-list-item';
+          li.textContent = 'No products found';
+          li.style.padding = '16px 20px';
+          li.style.background = '#1a1a1c';
+          li.style.border = '1px solid #2a2a2c';
+          li.style.borderRadius = '8px';
+          li.style.color = '#888';
+          ul.appendChild(li);
+          return;
+        }
+
+        filtered.forEach(product => {
+          const li = document.createElement('li');
+          li.className = 'boring-list-item';
+
+          const link = document.createElement('div');
+          link.className = 'boring-list-link';
+          link.style.display = 'flex';
+          link.style.alignItems = 'center';
+          link.style.gap = '16px';
+          link.style.padding = '16px 20px';
+
+          const img = document.createElement('img');
+          img.src = `assets/${product.image}`;
+          img.alt = product.title;
+          img.style.width = '80px';
+          img.style.height = '80px';
+          img.style.objectFit = 'cover';
+          img.style.borderRadius = '6px';
+          img.style.background = '#0b0b0c';
+          img.style.flexShrink = '0';
+
+          const title = document.createElement('span');
+          title.textContent = `${product.title} - £${product.price.toFixed(2)}`;
+          title.style.flex = '1';
+
+          const btn = document.createElement('button');
+          btn.className = 'asos-add-btn';
+          btn.textContent = 'Add to Cart';
+          btn.setAttribute('data-id', product.id.toString());
+
+          link.appendChild(img);
+          link.appendChild(title);
+          link.appendChild(btn);
+          li.appendChild(link);
+          ul.appendChild(li);
+        });
+      };
+
+      const renderCart = (container: HTMLElement) => {
+        container.innerHTML = '';
+        const cart = getCart();
+
+        if (cart.length === 0) {
+          const empty = document.createElement('div');
+          empty.textContent = 'Your cart is empty';
+          empty.style.textAlign = 'center';
+          empty.style.padding = '40px';
+          empty.style.color = '#888';
+          container.appendChild(empty);
+          return;
+        }
+
+        const ul = document.createElement('ul');
+        ul.className = 'boring-list';
+
+        cart.forEach((item: any) => {
+          const li = document.createElement('li');
+          li.className = 'boring-list-item';
+
+          const link = document.createElement('div');
+          link.className = 'boring-list-link';
+          link.style.display = 'flex';
+          link.style.alignItems = 'center';
+          link.style.gap = '16px';
+
+          const title = document.createElement('span');
+          title.textContent = `${item.title} × ${item.quantity} - £${(item.price * item.quantity).toFixed(2)}`;
+          title.style.flex = '1';
+
+          const btn = document.createElement('button');
+          btn.className = 'asos-remove-btn';
+          btn.textContent = 'Remove';
+          btn.setAttribute('data-id', item.id.toString());
+
+          link.appendChild(title);
+          link.appendChild(btn);
+          li.appendChild(link);
+          ul.appendChild(li);
+        });
+
+        container.appendChild(ul);
+
+        const total = cart.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+
+        const totalSection = document.createElement('div');
+        totalSection.style.marginTop = '24px';
+        totalSection.style.paddingTop = '24px';
+        totalSection.style.borderTop = '1px solid #2a2a2c';
+
+        const totalText = document.createElement('h3');
+        totalText.textContent = `Total: £${total.toFixed(2)}`;
+        totalText.style.color = '#fff';
+        totalText.style.fontSize = '18px';
+        totalText.style.marginBottom = '16px';
+
+        const checkoutBtn = document.createElement('button');
+        checkoutBtn.className = 'asos-checkout-btn';
+        checkoutBtn.textContent = 'Checkout';
+
+        totalSection.appendChild(totalText);
+        totalSection.appendChild(checkoutBtn);
+        container.appendChild(totalSection);
+      };
+
+      const render = () => {
+        while (document.body.firstChild) {
+          document.body.removeChild(document.body.firstChild);
+        }
+
+        const container = document.createElement('div');
+        container.className = 'boring-container';
+
+        // Header with back button and mode label
+        const header = document.createElement('div');
+        header.className = 'boring-header';
+
+        const backBtn = document.createElement('button');
+        backBtn.className = 'boring-back-btn';
+        backBtn.textContent = '← Back';
+        backBtn.onclick = () => window.history.back();
+
+        const modeLabel = document.createElement('span');
+        modeLabel.className = 'boring-mode-label';
+        modeLabel.textContent = `Shopping ${showingCart ? '(Cart)' : '(Demo)'}`;
+
+        header.appendChild(backBtn);
+        header.appendChild(modeLabel);
+        container.appendChild(header);
+
+        // Title row with cart button
+        const titleRow = document.createElement('div');
+        titleRow.style.display = 'flex';
+        titleRow.style.justifyContent = 'space-between';
+        titleRow.style.alignItems = 'center';
+        titleRow.style.marginBottom = '16px';
+
+        const h1 = document.createElement('h1');
+        h1.className = 'boring-title';
+        h1.textContent = 'ASOS';
+
+        const cartBtn = document.createElement('button');
+        cartBtn.className = 'boring-back-btn';
+        cartBtn.style.margin = '0';
+        cartBtn.innerHTML = 'Cart (<span id="cart-count">0</span>)';
+        cartBtn.onclick = () => {
+          showingCart = !showingCart;
+          render();
+        };
+
+        titleRow.appendChild(h1);
+        titleRow.appendChild(cartBtn);
+        container.appendChild(titleRow);
+
+        if (!showingCart) {
+          // Search input
+          const searchInput = document.createElement('input');
+          searchInput.type = 'text';
+          searchInput.className = 'boring-search';
+          searchInput.placeholder = 'Search products...';
+          searchInput.value = currentSearch;
+          searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+              currentSearch = (e.target as HTMLInputElement).value;
+              render();
+            }
+          });
+          container.appendChild(searchInput);
+
+          // Product list
+          const ul = document.createElement('ul');
+          ul.className = 'boring-list';
+          container.appendChild(ul);
+          renderProducts(ul);
+
+          // Add event listeners for add buttons
+          ul.querySelectorAll('.asos-add-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const id = parseInt((e.target as HTMLElement).getAttribute('data-id') || '0');
+              const product = allProducts.find(p => p.id === id);
+              if (product) addToCart(product);
+            });
+          });
+        } else {
+          // Cart view
+          const cartContainer = document.createElement('div');
+          container.appendChild(cartContainer);
+          renderCart(cartContainer);
+
+          // Add event listeners for remove and checkout buttons
+          cartContainer.querySelectorAll('.asos-remove-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const id = parseInt((e.target as HTMLElement).getAttribute('data-id') || '0');
+              let cart = getCart();
+              cart = cart.filter((item: any) => item.id !== id);
+              saveCart(cart);
+              render();
+            });
+          });
+
+          const checkoutBtn = cartContainer.querySelector('.asos-checkout-btn');
+          if (checkoutBtn) {
+            checkoutBtn.addEventListener('click', () => {
+              alert('Checkout complete! (Demo)');
+              saveCart([]);
+              render();
+            });
+          }
+        }
+
+        document.body.appendChild(container);
+
+        // Demo badge
+        const badge = document.createElement('div');
+        badge.className = 'demo-badge';
+        badge.textContent = '✓ Demo Mode Active';
+        document.body.appendChild(badge);
+
+        updateCartBadge();
+      };
+
+      // Add styles - exact same as YouTube fake page
+      if (document.head) {
+        const style = document.createElement('style');
+        style.textContent = `
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0b0b0c !important;
+            color: #e8e8e8;
+            line-height: 1.6;
+          }
+          .boring-container { max-width: 720px; margin: 0 auto; padding: 40px 20px; }
+          .boring-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #2a2a2c;
+          }
+          .boring-back-btn {
+            background: #1a1a1c;
+            border: 1px solid #2a2a2c;
+            color: #e8e8e8;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+          }
+          .boring-back-btn:hover { background: #2a2a2c; }
+          .boring-mode-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .boring-title {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            color: #fff;
+          }
+          .boring-search {
+            width: 100%;
+            padding: 12px 16px;
+            background: #1a1a1c;
+            border: 1px solid #2a2a2c;
+            border-radius: 8px;
+            color: #e8e8e8;
+            font-size: 16px;
+            margin-bottom: 24px;
+            outline: none;
+          }
+          .boring-search:focus { border-color: #4a9eff; }
+          .boring-list { list-style: none; }
+          .boring-list-item { margin-bottom: 8px; }
+          .boring-list-link {
+            display: block;
+            padding: 16px 20px;
+            background: #1a1a1c;
+            border: 1px solid #2a2a2c;
+            border-radius: 8px;
+            color: #e8e8e8;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 16px;
+            line-height: 1.4;
+          }
+          .boring-list-link:hover {
+            background: #2a2a2c;
+            border-color: #3a3a3c;
+            transform: translateX(4px);
+          }
+          .asos-add-btn, .asos-remove-btn {
+            background: #1a1a1c;
+            border: 1px solid #2a2a2c;
+            color: #e8e8e8;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            transition: background 0.2s;
+          }
+          .asos-add-btn:hover, .asos-remove-btn:hover {
+            background: #2a2a2c;
+          }
+          .asos-checkout-btn {
+            width: 100%;
+            background: #1a1a1c;
+            border: 1px solid #2a2a2c;
+            color: #e8e8e8;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+          }
+          .asos-checkout-btn:hover {
+            background: #2a2a2c;
+          }
+          .demo-badge {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: #007acc;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+            z-index: 999999;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      render();
+      console.log('[Boring Browser] Fake ASOS built!');
+    };
+
+    buildFakeASOS();
+    return;
+  }
+
 
   const injectVeil = () => {
     if (!document.documentElement) {
@@ -456,6 +928,12 @@ async function performTransformation() {
   // YouTube is already faked in veil IIFE - skip transformation
   if (location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) {
     console.log('[Boring Browser] YouTube already faked in veil, skipping normal transformation');
+    return;
+  }
+
+  // ASOS is already faked in veil IIFE - skip transformation
+  if (location.hostname.includes('asos.com')) {
+    console.log('[Boring Browser] ASOS already faked in veil, skipping normal transformation');
     return;
   }
 
