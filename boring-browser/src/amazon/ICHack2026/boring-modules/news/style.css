@@ -1,0 +1,9 @@
+/**
+ * News Sites Boring Mode CSS (BBC, The Guardian)
+ * Minimal - most styling is in theme.css
+ */
+
+/* Ensure smooth scrolling */
+html {
+  scroll-behavior: smooth !important;
+}

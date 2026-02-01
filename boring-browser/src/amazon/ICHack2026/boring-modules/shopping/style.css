@@ -1,0 +1,9 @@
+/**
+ * Shopping Sites Boring Mode CSS (ASOS, Zara, Shopify)
+ * Minimal - most styling is in theme.css
+ */
+
+/* Ensure smooth scrolling */
+html {
+  scroll-behavior: smooth !important;
+}

@@ -1,0 +1,26 @@
+{
+  "name": "ichack2026",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/recursivechockler/ICHack2026.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/recursivechockler/ICHack2026/issues"
+  },
+  "homepage": "https://github.com/recursivechockler/ICHack2026#readme",
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "dompurify": "^3.3.1",
+    "electron": "^40.1.0"
+  }
+
+}

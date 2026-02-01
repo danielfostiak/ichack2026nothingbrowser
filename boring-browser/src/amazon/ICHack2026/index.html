@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Anti-Dopamine Browser</title>
+    <style>
+      body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background: #111; }
+      .bar {
+        height: 64px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e6e6e6;
+        background: #fafafa;
+        box-sizing: border-box;
+      }
+      button {
+        padding: 8px 10px;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      button:hover { background: #f2f2f2; }
+      input {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        font-size: 14px;
+        outline: none;
+        background: white;
+      }
+      .pill {
+        border-radius: 999px;
+        font-weight: 700;
+      }
+      .toast {
+        position: fixed;
+        top: 72px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111;
+        color: #fff;
+        padding: 10px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 120ms ease;
+      }
+      .toast.show { opacity: 0.92; }
+      .loading-overlay {
+        position: fixed;
+        top: 64px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #111;
+        color: #e8e8e8;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        letter-spacing: 0.02em;
+        z-index: 9999;
+      }
+      .loading-overlay.show { display: flex; }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <button id="back" title="Back">←</button>
+      <button id="forward" title="Forward">→</button>
+      <button id="reload" title="Reload">⟳</button>
+      <input id="url" placeholder="Enter URL (e.g. bbc.com/news)" />
+      <button id="go" class="pill">Go</button>
+      <button id="reader" class="pill">Reader Mode</button>
+      <button id="boring-toggle" class="pill" title="Toggle boring mode">Boring Mode: ON</button>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <div id="loading" class="loading-overlay">Loading results…</div>
+
+    <script src="ui.js"></script>
+  </body>
+</html>

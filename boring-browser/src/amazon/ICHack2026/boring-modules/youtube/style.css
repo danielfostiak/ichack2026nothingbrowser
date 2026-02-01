@@ -1,0 +1,29 @@
+/**
+ * YouTube Boring Mode CSS
+ * Minimal - most styling is in theme.css
+ */
+
+/* Ensure smooth scrolling */
+html {
+  scroll-behavior: smooth !important;
+}
+
+/* Video grid specific adjustments */
+.boring-video-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 1rem !important;
+  margin-top: 2rem !important;
+}
+
+@media (min-width: 768px) {
+  .boring-video-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .boring-video-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
