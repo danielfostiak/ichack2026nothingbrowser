@@ -1,4 +1,5 @@
 node_modules/
 adapter-server/node_modules/
+adapter-server/.env
 boring-browser/node_modules/
 .DS_Store
