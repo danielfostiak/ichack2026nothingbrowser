@@ -63,7 +63,7 @@ const getYouTubeTabTitle = (parsed: URL, host: string) => {
 
 const getDuckDuckGoTabTitle = (parsed: URL) => {
   const query = parsed.searchParams.get('q');
-  return query ? `duckduckgo: ${truncateTabLabel(query)}` : 'duckduckgo';
+  return query ? `search: ${truncateTabLabel(query)}` : 'search';
 };
 
 const getHostBasedTitle = (parsed: URL): string | null => {

@@ -94,7 +94,7 @@ export function extractDuckDuckGoResults(doc: Document, url: string): ListPageDa
       title: 'No results found - try a different search',
       href: 'https://duckduckgo.com'
     }],
-    modeLabel: 'duckduckgo',
+    modeLabel: 'search',
     searchBox: true
   };
 }

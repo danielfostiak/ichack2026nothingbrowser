@@ -1141,6 +1141,7 @@ async function performTransformation() {
 
       // Run once now and once after the browser finishes parsing the new document.
       ensureTemplatePresent();
+      setTimeout(updateExplainPanel, 0);
       setTimeout(ensureTemplatePresent, 0);
       setTimeout(() => logRenderState('post-timeout-50ms'), 50);
       setTimeout(() => logRenderState('post-timeout-250ms'), 250);
@@ -1225,6 +1226,15 @@ function setupEventHandlers() {
     } else if (action === 'reload') {
       e.preventDefault();
       window.location.reload();
+    } else if (action === 'toggle-explain') {
+      e.preventDefault();
+      if (document.body) {
+        document.body.classList.toggle('boring-explain-open');
+        updateExplainPanel();
+      }
+    } else if (action === 'close-explain') {
+      e.preventDefault();
+      document.body?.classList.remove('boring-explain-open');
     } else if (action === 'add-to-basket') {
       e.preventDefault();
       const item = readBasketItem(target);
@@ -1246,6 +1256,213 @@ function setupEventHandlers() {
       ipcRenderer.send('nav-to', checkoutUrl);
     }
   });
+}
+
+type ExplainProfile = {
+  title: string;
+  blocked: string[];
+  reasons: string[];
+  counterfactuals: string[];
+  shap: Array<{ feature: string; weight: number }>;
+};
+
+function getExplainProfile(url: URL): ExplainProfile {
+  const host = url.hostname.toLowerCase();
+
+  if (host.includes('youtube.com') || host.includes('youtu.be')) {
+    return {
+      title: 'youtube',
+      blocked: [
+        'pre-roll and overlay ads',
+        'sidebar recommendations',
+        'comments and live chat',
+        'shorts shelf and promos'
+      ],
+      reasons: [
+        'reduce dopamine hooks and distraction',
+        'keep watch flow fast and focused',
+        'limit engagement loops that bias viewing'
+      ],
+      counterfactuals: [
+        'if we kept recommendations, you would see a long sidebar of suggested videos.',
+        'if we kept comments, you would see a large discussion panel below the player.',
+        'if we kept ads, you would see overlay banners and pre-rolls.'
+      ],
+      shap: [
+        { feature: 'ad surfaces', weight: 0.38 },
+        { feature: 'recommendations', weight: 0.27 },
+        { feature: 'comments', weight: 0.2 },
+        { feature: 'shorts promos', weight: 0.15 }
+      ]
+    };
+  }
+
+  if (host.includes('amazon.')) {
+    return {
+      title: 'amazon',
+      blocked: [
+        'carousel recommendations',
+        'sponsored placements',
+        'upsell popups and nudges'
+      ],
+      reasons: [
+        'keep product list readable',
+        'reduce impulse triggers',
+        'prioritize primary product data'
+      ],
+      counterfactuals: [
+        'if we kept carousels, you would see multiple “related” rows.',
+        'if we kept sponsored placements, paid items would be mixed into the grid.'
+      ],
+      shap: [
+        { feature: 'sponsored rows', weight: 0.33 },
+        { feature: 'recommendation carousels', weight: 0.29 },
+        { feature: 'upsell prompts', weight: 0.2 },
+        { feature: 'banners', weight: 0.18 }
+      ]
+    };
+  }
+
+  if (host.includes('asos.com')) {
+    return {
+      title: 'asos',
+      blocked: [
+        'promo banners',
+        'recommendation rails',
+        'signup and app popups'
+      ],
+      reasons: [
+        'focus on product grid only',
+        'reduce promotional noise',
+        'avoid modal interruptions'
+      ],
+      counterfactuals: [
+        'if we kept promos, you would see large sale banners.',
+        'if we kept recommendations, more carousels would appear after the grid.'
+      ],
+      shap: [
+        { feature: 'promo banners', weight: 0.35 },
+        { feature: 'signup prompts', weight: 0.25 },
+        { feature: 'recommendations', weight: 0.22 },
+        { feature: 'popups', weight: 0.18 }
+      ]
+    };
+  }
+
+  if (host.includes('google.') || host.includes('duckduckgo.')) {
+    return {
+      title: host.includes('google.') ? 'google' : 'duckduckgo',
+      blocked: [
+        'sponsored cards',
+        'side knowledge panels',
+        'tracking banners'
+      ],
+      reasons: [
+        'keep results list concise',
+        'avoid visual bias from paid placements',
+        'reduce clutter and tracking prompts'
+      ],
+      counterfactuals: [
+        'if we kept sponsored cards, paid results would appear above organic links.',
+        'if we kept side panels, you would see large info boxes on the right.'
+      ],
+      shap: [
+        { feature: 'sponsored cards', weight: 0.4 },
+        { feature: 'side panels', weight: 0.3 },
+        { feature: 'tracking prompts', weight: 0.3 }
+      ]
+    };
+  }
+
+  if (host.includes('bbc.') || host.includes('news')) {
+    return {
+      title: 'news',
+      blocked: [
+        'interstitials and paywall prompts',
+        'sticky video modules',
+        'inline ad containers'
+      ],
+      reasons: [
+        'maintain reading flow',
+        'avoid auto-playing distractions',
+        'reduce visual noise'
+      ],
+      counterfactuals: [
+        'if we kept sticky video, a floating player would follow you.',
+        'if we kept ad containers, large boxes would interrupt the text.'
+      ],
+      shap: [
+        { feature: 'sticky video', weight: 0.32 },
+        { feature: 'ad containers', weight: 0.31 },
+        { feature: 'paywall prompts', weight: 0.22 },
+        { feature: 'popups', weight: 0.15 }
+      ]
+    };
+  }
+
+  return {
+    title: 'site',
+    blocked: [
+      'popups and overlays',
+      'ad containers',
+      'tracking and consent banners'
+    ],
+    reasons: [
+      'keep the core content visible',
+      'reduce distractions',
+      'improve page stability'
+    ],
+    counterfactuals: [
+      'if we kept overlays, dialogs would block the main content.',
+      'if we kept ad containers, extra boxes would appear throughout the page.'
+    ],
+    shap: [
+      { feature: 'overlays', weight: 0.4 },
+      { feature: 'ad containers', weight: 0.35 },
+      { feature: 'consent banners', weight: 0.25 }
+    ]
+  };
+}
+
+function renderExplainContent(profile: ExplainProfile): string {
+  const list = (items: string[]) =>
+    `<ul class="boring-explain-list">${items.map(item => `<li>${item}</li>`).join('')}</ul>`;
+  const shapList = profile.shap.map(entry => `${entry.feature}: ${Math.round(entry.weight * 100)}%`);
+
+  return `
+    <div class="boring-explain-section">
+      <div class="boring-explain-label">site</div>
+      <div>${profile.title}</div>
+    </div>
+    <div class="boring-explain-section">
+      <div class="boring-explain-label">blocked features</div>
+      ${list(profile.blocked)}
+    </div>
+    <div class="boring-explain-section">
+      <div class="boring-explain-label">reasons</div>
+      ${list(profile.reasons)}
+    </div>
+    <div class="boring-explain-section">
+      <div class="boring-explain-label">counterfactuals</div>
+      ${list(profile.counterfactuals)}
+    </div>
+    <div class="boring-explain-section">
+      <div class="boring-explain-label">feature impact (shap-style)</div>
+      ${list(shapList)}
+    </div>
+  `;
+}
+
+function updateExplainPanel() {
+  const panel = document.getElementById('boring-explain-panel');
+  const content = document.getElementById('boring-explain-content');
+  if (!panel || !content) return;
+  try {
+    const profile = getExplainProfile(new URL(location.href));
+    content.innerHTML = renderExplainContent(profile);
+  } catch (error) {
+    content.textContent = 'unable to build explanation for this page.';
+  }
 }
 
 type BasketItem = {

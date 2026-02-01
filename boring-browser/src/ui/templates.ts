@@ -96,8 +96,44 @@ export function renderTemplate(result: TemplateResult): string {
   }
 }
 
+const explainButtonHTML = `
+  <button class="boring-explain-btn" data-action="toggle-explain">explain</button>
+`;
+
+function renderToolbarRow(searchHTML?: string): string {
+  const hasSearch = !!(searchHTML && searchHTML.trim());
+  const searchWrap = hasSearch ? `
+    <div class="boring-search-wrap">
+      ${searchHTML}
+    </div>
+  ` : '<div class="boring-search-wrap"></div>';
+
+  return `
+    <div class="boring-toolbar-row${hasSearch ? '' : ' no-search'}">
+      ${searchWrap}
+      ${explainButtonHTML}
+    </div>
+  `;
+}
+
+function renderExplainPanel(): string {
+  return `
+    <aside class="boring-explain-panel" id="boring-explain-panel" aria-hidden="true">
+      <div class="boring-explain-inner">
+        <div class="boring-explain-header">
+          <span class="boring-explain-title">explain</span>
+          <button class="boring-explain-close" data-action="close-explain">×</button>
+        </div>
+        <div id="boring-explain-content" class="boring-explain-content">
+          loading…
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
 export function renderListPage(data: ListPageData): string {
-  const searchBoxHTML = data.searchBox ? `
+  const searchInputHTML = data.searchBox ? `
     <input
       type="text"
       class="boring-search"
@@ -105,6 +141,7 @@ export function renderListPage(data: ListPageData): string {
       placeholder="search..."
     >
   ` : '';
+  const toolbarRowHTML = renderToolbarRow(searchInputHTML);
 
   const itemsHTML = data.items.map(item => {
     const imageHTML = item.image ? `
@@ -134,17 +171,18 @@ export function renderListPage(data: ListPageData): string {
         <span class="boring-mode-label">${(data.modeLabel || 'list view').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
-      ${searchBoxHTML}
+      ${toolbarRowHTML}
       <ul class="boring-list">
         ${itemsHTML}
       </ul>
     </div>
+    ${renderExplainPanel()}
   `;
 }
 
 export function renderShoppingPage(data: ShoppingPageData): string {
   const showSearch = data.searchBox !== false;
-  const searchBoxHTML = showSearch ? `
+  const searchInputHTML = showSearch ? `
     <input
       type="text"
       class="boring-search"
@@ -152,6 +190,7 @@ export function renderShoppingPage(data: ShoppingPageData): string {
       placeholder="search products..."
     >
   ` : '';
+  const toolbarRowHTML = renderToolbarRow(searchInputHTML);
 
   const itemsHTML = data.items.map(item => {
     const imageHTML = item.image ? `
@@ -205,7 +244,7 @@ export function renderShoppingPage(data: ShoppingPageData): string {
         <span class="boring-mode-label">${(data.modeLabel || 'shopping').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
-      ${searchBoxHTML}
+      ${toolbarRowHTML}
       <section class="boring-basket" data-checkout-url="${checkoutUrl}">
         <div class="boring-basket-header">
           <div>
@@ -227,11 +266,12 @@ export function renderShoppingPage(data: ShoppingPageData): string {
         ${emptyHTML}
       </div>
     </div>
+    ${renderExplainPanel()}
   `;
 }
 
 export function renderNewsPage(data: NewsPageData): string {
-  const searchBoxHTML = data.searchBox ? `
+  const searchInputHTML = data.searchBox ? `
     <input
       type="text"
       class="boring-search"
@@ -239,6 +279,7 @@ export function renderNewsPage(data: NewsPageData): string {
       placeholder="search news..."
     >
   ` : '';
+  const toolbarRowHTML = renderToolbarRow(searchInputHTML);
 
   const itemsHTML = data.items.map(item => {
     const metaParts = [
@@ -264,11 +305,12 @@ export function renderNewsPage(data: NewsPageData): string {
         <span class="boring-mode-label">${(data.modeLabel || 'news').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
-      ${searchBoxHTML}
+      ${toolbarRowHTML}
       <ul class="boring-news-list">
         ${itemsHTML}
       </ul>
     </div>
+    ${renderExplainPanel()}
   `;
 }
 
@@ -276,6 +318,7 @@ export function renderArticlePage(data: ArticlePageData): string {
   const bylineHTML = data.byline ? `
     <div class="boring-byline">${escapeHtml(data.byline)}</div>
   ` : '';
+  const toolbarRowHTML = renderToolbarRow('');
 
   return `
     <div class="boring-container">
@@ -284,35 +327,42 @@ export function renderArticlePage(data: ArticlePageData): string {
         <span class="boring-mode-label">${(data.modeLabel || 'article view').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
+      ${toolbarRowHTML}
       ${bylineHTML}
       <div class="boring-content">
         ${data.contentHTML}
       </div>
     </div>
+    ${renderExplainPanel()}
   `;
 }
 
 export function renderVideoPage(data: VideoPageData): string {
+  const toolbarRowHTML = renderToolbarRow('');
   return `
     <div class="boring-container boring-video-only">
       <div class="boring-header">
         <button class="boring-back-btn" data-action="back">← back</button>
         <span class="boring-mode-label">${(data.modeLabel || 'video').toLowerCase()}</span>
       </div>
+      ${toolbarRowHTML}
       <div class="boring-player-wrapper">
         ${data.playerHTML}
       </div>
     </div>
+    ${renderExplainPanel()}
   `;
 }
 
 export function renderFallback(url: string): string {
+  const toolbarRowHTML = renderToolbarRow('');
   return `
     <div class="boring-container">
       <div class="boring-header">
         <button class="boring-back-btn" data-action="back">← back</button>
         <span class="boring-mode-label">fallback view</span>
       </div>
+      ${toolbarRowHTML}
       <div class="boring-fallback">
         <h2>minimal view not available</h2>
         <p>this page doesn't have a custom minimal view yet.</p>
@@ -321,6 +371,7 @@ export function renderFallback(url: string): string {
         </a>
       </div>
     </div>
+    ${renderExplainPanel()}
   `;
 }
 
