@@ -203,7 +203,9 @@ export function extractAmazonProducts(doc: Document, url: URL): ShoppingPageData
     doc.title ||
     'Amazon';
 
-  const checkoutUrl = normalizeUrl('/gp/cart/view.html', base) || `${base.origin}/gp/cart/view.html`;
+  const checkoutUrl =
+    normalizeUrl('/gp/cart/desktop/go-to-checkout.html', base) ||
+    `${base.origin}/gp/cart/desktop/go-to-checkout.html`;
 
   return {
     title: pageTitle.replace(/\s*Amazon\s*$/i, '').trim() || 'Amazon',
