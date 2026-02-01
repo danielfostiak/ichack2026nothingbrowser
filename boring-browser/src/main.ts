@@ -41,22 +41,75 @@ const getTabDisplayUrl = (tab: Tab): string => {
   return tab.url;
 };
 
+const truncateTabLabel = (value: string, maxLen = 26) => {
+  if (value.length <= maxLen) return value;
+  return value.slice(0, Math.max(0, maxLen - 3)).trimEnd() + '...';
+};
+
+const getYouTubeTabTitle = (parsed: URL, host: string) => {
+  const path = parsed.pathname;
+  if (path === '/watch' || path.startsWith('/shorts') || host === 'youtu.be') {
+    return 'YouTube: Watch';
+  }
+  if (path === '/results') {
+    const query = parsed.searchParams.get('search_query') || parsed.searchParams.get('q');
+    return query ? `YouTube: ${truncateTabLabel(query)}` : 'YouTube: Search';
+  }
+  return 'YouTube';
+};
+
+const getDuckDuckGoTabTitle = (parsed: URL) => {
+  const query = parsed.searchParams.get('q');
+  return query ? `DuckDuckGo: ${truncateTabLabel(query)}` : 'DuckDuckGo';
+};
+
+const getHostBasedTitle = (parsed: URL): string | null => {
+  const host = parsed.hostname.replace(/^www\./, '');
+
+  if (host.includes('youtube.com') || host === 'youtu.be') {
+    return getYouTubeTabTitle(parsed, host);
+  }
+  if (host.includes('bbc.co.uk') || host.includes('bbc.com')) {
+    return 'BBC News';
+  }
+  if (host.includes('amazon.')) {
+    return 'Amazon';
+  }
+  if (host.includes('asos.com')) {
+    return 'ASOS';
+  }
+  if (host.includes('duckduckgo.com')) {
+    return getDuckDuckGoTabTitle(parsed);
+  }
+  if (host.includes('google.')) {
+    return 'Google';
+  }
+
+  return host || null;
+};
+
 const getTabDisplayTitle = (tab: Tab): string => {
-  if (tab.url.startsWith('file://')) {
+  const url = tab.url;
+  if (url.startsWith('file://')) {
     return 'New Tab';
   }
-  if (tab.title.trim()) {
-    return tab.title;
+
+  const rawTitle = tab.title.trim();
+  const isGenericTitle = rawTitle.toLowerCase().startsWith('boring browser');
+  if (rawTitle && !isGenericTitle) {
+    return rawTitle;
   }
-  if (tab.url) {
-    try {
-      const host = new URL(tab.url).hostname.replace(/^www\./, '');
-      return host || tab.url;
-    } catch {
-      return tab.url;
-    }
+
+  if (!url) {
+    return 'New Tab';
   }
-  return 'New Tab';
+
+  try {
+    const parsed = new URL(url);
+    return getHostBasedTitle(parsed) || url;
+  } catch {
+    return url;
+  }
 };
 
 const sendToChrome = (channel: string, ...args: any[]) => {
