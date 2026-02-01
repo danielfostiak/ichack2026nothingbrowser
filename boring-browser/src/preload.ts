@@ -162,12 +162,12 @@
 
       const backBtn = document.createElement('button');
       backBtn.className = 'boring-back-btn';
-      backBtn.textContent = '← Back';
+      backBtn.textContent = '← back';
       backBtn.onclick = () => window.history.back();
 
       const modeLabel = document.createElement('span');
       modeLabel.className = 'video-mode-label';
-      modeLabel.textContent = 'Video (Demo)';
+      modeLabel.textContent = 'video (demo)';
 
       header.appendChild(backBtn);
       header.appendChild(modeLabel);
@@ -205,7 +205,7 @@
 
       const badge = document.createElement('div');
       badge.className = 'demo-badge';
-      badge.textContent = '✓ Demo Mode Active';
+      badge.textContent = '✓ demo mode active';
       document.body.appendChild(badge);
 
       console.log('[Boring Browser] Fake video page built!');
@@ -322,12 +322,12 @@
 
       const backBtn = document.createElement('button');
       backBtn.className = 'boring-back-btn';
-      backBtn.textContent = '← Back';
+      backBtn.textContent = '← back';
       backBtn.onclick = () => window.history.back();
 
       const modeLabel = document.createElement('span');
       modeLabel.className = 'boring-mode-label';
-      modeLabel.textContent = 'Videos (Demo)';
+      modeLabel.textContent = 'videos (demo)';
 
       header.appendChild(backBtn);
       header.appendChild(modeLabel);
@@ -335,29 +335,29 @@
 
       const h1 = document.createElement('h1');
       h1.className = 'boring-title';
-      h1.textContent = 'YouTube';
+      h1.textContent = 'youtube';
       container.appendChild(h1);
 
       const searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'boring-search';
-      searchInput.placeholder = 'Search...';
+      searchInput.placeholder = 'search...';
       container.appendChild(searchInput);
 
       const ul = document.createElement('ul');
       ul.className = 'boring-list';
 
       const videos = [
-        { title: 'Building a Browser from Scratch - Complete Tutorial', href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-        { title: 'Electron App Development - Best Practices 2026', href: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
-        { title: 'TypeScript Advanced Patterns - Full Course', href: 'https://www.youtube.com/watch?v=9bZkp7q19f0' },
-        { title: 'Web Performance Optimization Techniques', href: 'https://www.youtube.com/watch?v=kxT8-C1vmd8' },
-        { title: 'Modern CSS Layout - Complete Guide', href: 'https://www.youtube.com/watch?v=L4CR-c2_2L0' },
-        { title: 'JavaScript Runtime Deep Dive', href: 'https://www.youtube.com/watch?v=8aGhZQkoFbQ' },
-        { title: 'Building Minimal UIs - Design Philosophy', href: 'https://www.youtube.com/watch?v=hFmr3r4dUNs' },
-        { title: 'Content Security Policy Explained', href: 'https://www.youtube.com/watch?v=3JvuKT9jftk' },
-        { title: 'DOM Manipulation Performance Tips', href: 'https://www.youtube.com/watch?v=tJa5fJ-hjk0' },
-        { title: 'Zero-Flicker Page Transitions', href: 'https://www.youtube.com/watch?v=L2vS_050c-M' }
+        { title: 'building a browser from scratch - complete tutorial', href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+        { title: 'electron app development - best practices 2026', href: 'https://www.youtube.com/watch?v=jNQXAC9IVRw' },
+        { title: 'typescript advanced patterns - full course', href: 'https://www.youtube.com/watch?v=9bZkp7q19f0' },
+        { title: 'web performance optimization techniques', href: 'https://www.youtube.com/watch?v=kxT8-C1vmd8' },
+        { title: 'modern css layout - complete guide', href: 'https://www.youtube.com/watch?v=L4CR-c2_2L0' },
+        { title: 'javascript runtime deep dive', href: 'https://www.youtube.com/watch?v=8aGhZQkoFbQ' },
+        { title: 'building minimal uis - design philosophy', href: 'https://www.youtube.com/watch?v=hFmr3r4dUNs' },
+        { title: 'content security policy explained', href: 'https://www.youtube.com/watch?v=3JvuKT9jftk' },
+        { title: 'dom manipulation performance tips', href: 'https://www.youtube.com/watch?v=tJa5fJ-hjk0' },
+        { title: 'zero-flicker page transitions', href: 'https://www.youtube.com/watch?v=L2vS_050c-M' }
       ];
 
       videos.forEach(video => {
@@ -378,7 +378,7 @@
 
       const badge = document.createElement('div');
       badge.className = 'demo-badge';
-      badge.textContent = '✓ Demo Mode Active';
+      badge.textContent = '✓ demo mode active';
       document.body.appendChild(badge);
 
       console.log('[Boring Browser] Fake homepage built!');
@@ -462,28 +462,27 @@
         const badge = document.getElementById('cart-count');
         if (badge) {
           badge.textContent = total.toString();
-          badge.style.display = total > 0 ? 'flex' : 'none';
         }
       };
 
-      // Hardcoded products - mixed items initially, shoes for search demo
+      // Hardcoded products with actual image paths from assets folder
       const allProducts = [
-        { id: 1, title: 'Classic Denim Jacket', price: 89.99, image: 'asos-shoe-1.jpg', category: 'clothing' },
-        { id: 2, title: 'Slim Fit Chinos', price: 119.99, image: 'asos-shoe-2.jpg', category: 'clothing' },
-        { id: 3, title: 'Casual Cotton T-Shirt', price: 29.99, image: 'asos-shoe-3.jpg', category: 'clothing' },
-        { id: 4, title: 'Summer Dress', price: 79.99, image: 'asos-shoe-4.jpg', category: 'clothing' },
-        { id: 5, title: 'Wool Blend Sweater', price: 99.99, image: 'asos-shoe-5.jpg', category: 'clothing' },
-        { id: 6, title: 'Leather Belt', price: 39.99, image: 'asos-shoe-6.jpg', category: 'accessories' },
-        { id: 7, title: 'Designer Watch', price: 179.99, image: 'asos-shoe-7.jpg', category: 'accessories' },
-        { id: 8, title: 'Canvas Backpack', price: 59.99, image: 'asos-shoe-8.jpg', category: 'accessories' },
-        { id: 9, title: 'Classic Black Sneakers', price: 89.99, image: 'asos-shoe-1.jpg', category: 'shoes' },
-        { id: 10, title: 'White Running Shoes', price: 119.99, image: 'asos-shoe-2.jpg', category: 'shoes' },
-        { id: 11, title: 'Leather Boots', price: 149.99, image: 'asos-shoe-3.jpg', category: 'shoes' },
-        { id: 12, title: 'Summer Sandals', price: 59.99, image: 'asos-shoe-4.jpg', category: 'shoes' },
-        { id: 13, title: 'High Top Trainers', price: 99.99, image: 'asos-shoe-5.jpg', category: 'shoes' },
-        { id: 14, title: 'Canvas Slip-Ons', price: 69.99, image: 'asos-shoe-6.jpg', category: 'shoes' },
-        { id: 15, title: 'Designer Heels', price: 179.99, image: 'asos-shoe-7.jpg', category: 'shoes' },
-        { id: 16, title: 'Sports Trainers', price: 109.99, image: 'asos-shoe-8.jpg', category: 'shoes' },
+        { id: 1, title: 'classic denim jacket', price: 89.99, image: 'assets/asos-shoe-1.jpg', category: 'clothing' },
+        { id: 2, title: 'slim fit chinos', price: 119.99, image: 'assets/asos-shoe-2.jpg', category: 'clothing' },
+        { id: 3, title: 'casual cotton t-shirt', price: 29.99, image: 'assets/asos-shoe-3.jpg', category: 'clothing' },
+        { id: 4, title: 'summer dress', price: 79.99, image: 'assets/asos-shoe-4.jpg', category: 'clothing' },
+        { id: 5, title: 'wool blend sweater', price: 99.99, image: 'assets/asos-shoe-5.jpg', category: 'clothing' },
+        { id: 6, title: 'leather belt', price: 39.99, image: 'assets/asos-shoe-6.jpg', category: 'accessories' },
+        { id: 7, title: 'designer watch', price: 179.99, image: 'assets/asos-shoe-7.jpg', category: 'accessories' },
+        { id: 8, title: 'canvas backpack', price: 59.99, image: 'assets/asos-shoe-8.jpg', category: 'accessories' },
+        { id: 9, title: 'classic black sneakers', price: 89.99, image: 'assets/asos-shoe-1.jpg', category: 'shoes' },
+        { id: 10, title: 'white running shoes', price: 119.99, image: 'assets/asos-shoe-2.jpg', category: 'shoes' },
+        { id: 11, title: 'leather boots', price: 149.99, image: 'assets/asos-shoe-3.jpg', category: 'shoes' },
+        { id: 12, title: 'summer sandals', price: 59.99, image: 'assets/asos-shoe-4.jpg', category: 'shoes' },
+        { id: 13, title: 'high top trainers', price: 99.99, image: 'assets/asos-shoe-5.jpg', category: 'shoes' },
+        { id: 14, title: 'canvas slip-ons', price: 69.99, image: 'assets/asos-shoe-6.jpg', category: 'shoes' },
+        { id: 15, title: 'designer heels', price: 179.99, image: 'assets/asos-shoe-7.jpg', category: 'shoes' },
+        { id: 16, title: 'sports trainers', price: 109.99, image: 'assets/asos-shoe-8.jpg', category: 'shoes' },
       ];
 
       let currentSearch = '';
@@ -505,7 +504,7 @@
         if (filtered.length === 0) {
           const li = document.createElement('li');
           li.className = 'boring-list-item';
-          li.textContent = 'No products found';
+          li.textContent = 'no products found';
           li.style.padding = '16px 20px';
           li.style.background = '#1a1a1c';
           li.style.border = '1px solid #2a2a2c';
@@ -527,7 +526,7 @@
           link.style.padding = '16px 20px';
 
           const img = document.createElement('img');
-          img.src = `assets/${product.image}`;
+          img.src = product.image;
           img.alt = product.title;
           img.style.width = '80px';
           img.style.height = '80px';
@@ -542,7 +541,7 @@
 
           const btn = document.createElement('button');
           btn.className = 'asos-add-btn';
-          btn.textContent = 'Add to Cart';
+          btn.textContent = 'add to cart';
           btn.setAttribute('data-id', product.id.toString());
 
           link.appendChild(img);
@@ -559,7 +558,7 @@
 
         if (cart.length === 0) {
           const empty = document.createElement('div');
-          empty.textContent = 'Your cart is empty';
+          empty.textContent = 'your cart is empty';
           empty.style.textAlign = 'center';
           empty.style.padding = '40px';
           empty.style.color = '#888';
@@ -586,7 +585,7 @@
 
           const btn = document.createElement('button');
           btn.className = 'asos-remove-btn';
-          btn.textContent = 'Remove';
+          btn.textContent = 'remove';
           btn.setAttribute('data-id', item.id.toString());
 
           link.appendChild(title);
@@ -605,14 +604,14 @@
         totalSection.style.borderTop = '1px solid #2a2a2c';
 
         const totalText = document.createElement('h3');
-        totalText.textContent = `Total: £${total.toFixed(2)}`;
+        totalText.textContent = `total: £${total.toFixed(2)}`;
         totalText.style.color = '#fff';
         totalText.style.fontSize = '18px';
         totalText.style.marginBottom = '16px';
 
         const checkoutBtn = document.createElement('button');
         checkoutBtn.className = 'asos-checkout-btn';
-        checkoutBtn.textContent = 'Checkout';
+        checkoutBtn.textContent = 'checkout';
 
         totalSection.appendChild(totalText);
         totalSection.appendChild(checkoutBtn);
@@ -638,7 +637,7 @@
 
         const modeLabel = document.createElement('span');
         modeLabel.className = 'boring-mode-label';
-        modeLabel.textContent = `Shopping ${showingCart ? '(Cart)' : '(Demo)'}`;
+        modeLabel.textContent = `shopping ${showingCart ? '(cart)' : '(demo)'}`;
 
         header.appendChild(backBtn);
         header.appendChild(modeLabel);
@@ -653,12 +652,23 @@
 
         const h1 = document.createElement('h1');
         h1.className = 'boring-title';
-        h1.textContent = 'ASOS';
+        h1.textContent = 'asos';
 
         const cartBtn = document.createElement('button');
         cartBtn.className = 'boring-back-btn';
         cartBtn.style.margin = '0';
-        cartBtn.innerHTML = 'Cart (<span id="cart-count">0</span>)';
+
+        // Create cart text and counter inline
+        const cartText = document.createTextNode('basket(');
+        const countSpan = document.createElement('span');
+        countSpan.id = 'cart-count';
+        countSpan.textContent = '0';
+        const closeParen = document.createTextNode(')');
+
+        cartBtn.appendChild(cartText);
+        cartBtn.appendChild(countSpan);
+        cartBtn.appendChild(closeParen);
+
         cartBtn.onclick = () => {
           showingCart = !showingCart;
           render();
@@ -673,7 +683,7 @@
           const searchInput = document.createElement('input');
           searchInput.type = 'text';
           searchInput.className = 'boring-search';
-          searchInput.placeholder = 'Search products...';
+          searchInput.placeholder = 'search products...';
           searchInput.value = currentSearch;
           searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -717,7 +727,7 @@
           const checkoutBtn = cartContainer.querySelector('.asos-checkout-btn');
           if (checkoutBtn) {
             checkoutBtn.addEventListener('click', () => {
-              alert('Checkout complete! (Demo)');
+              alert('checkout complete! (demo)');
               saveCart([]);
               render();
             });
@@ -962,8 +972,8 @@ async function performTransformation() {
       });
     }
 
-    // Wait for dynamic content to fully load (BBC needs this)
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Wait for dynamic content to fully load (Google/BBC need this)
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Run the transformation
     console.log('[Boring Browser] Running transformation...');

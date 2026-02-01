@@ -76,8 +76,8 @@ function createWindow() {
         <button id="forward" title="Forward">→</button>
         <button id="refresh" title="Refresh">⟳</button>
       </div>
-      <input type="text" id="url" placeholder="Enter URL...">
-      <button id="minimal-toggle" class="active">Minimal Mode</button>
+      <input type="text" id="url" placeholder="enter url...">
+      <button id="minimal-toggle" class="active">minimal mode</button>
       <script>
         const { ipcRenderer } = require('electron');
 
@@ -90,6 +90,11 @@ function createWindow() {
         backBtn.addEventListener('click', () => ipcRenderer.send('nav-back'));
         forwardBtn.addEventListener('click', () => ipcRenderer.send('nav-forward'));
         refreshBtn.addEventListener('click', () => ipcRenderer.send('nav-refresh'));
+
+        // Select all text when clicking the URL bar
+        urlInput.addEventListener('click', () => {
+          urlInput.select();
+        });
 
         urlInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') {
@@ -123,10 +128,10 @@ function createWindow() {
         ipcRenderer.on('minimal-mode-changed', (event, enabled) => {
           if (enabled) {
             minimalToggle.classList.add('active');
-            minimalToggle.textContent = 'Minimal Mode';
+            minimalToggle.textContent = 'minimal mode';
           } else {
             minimalToggle.classList.remove('active');
-            minimalToggle.textContent = 'Normal Mode';
+            minimalToggle.textContent = 'normal mode';
           }
         });
       </script>

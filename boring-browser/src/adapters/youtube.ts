@@ -7,43 +7,43 @@ export function extractYouTubeList(doc: Document, url: string): ListPageData {
   // User can customize these fake videos
   const fakeVideos: ListItem[] = [
     {
-      title: 'Building a Browser from Scratch - Complete Tutorial',
+      title: 'building a browser from scratch - complete tutorial',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_1'
     },
     {
-      title: 'Electron App Development - Best Practices 2026',
+      title: 'electron app development - best practices 2026',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_2'
     },
     {
-      title: 'TypeScript Advanced Patterns - Full Course',
+      title: 'typescript advanced patterns - full course',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_3'
     },
     {
-      title: 'Web Performance Optimization Techniques',
+      title: 'web performance optimization techniques',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_4'
     },
     {
-      title: 'Modern CSS Layout - Complete Guide',
+      title: 'modern css layout - complete guide',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_5'
     },
     {
-      title: 'JavaScript Runtime Deep Dive',
+      title: 'javascript runtime deep dive',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_6'
     },
     {
-      title: 'Building Minimal UIs - Design Philosophy',
+      title: 'building minimal uis - design philosophy',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_7'
     },
     {
-      title: 'Content Security Policy Explained',
+      title: 'content security policy explained',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_8'
     },
     {
-      title: 'DOM Manipulation Performance Tips',
+      title: 'dom manipulation performance tips',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_9'
     },
     {
-      title: 'Zero-Flicker Page Transitions',
+      title: 'zero-flicker page transitions',
       href: 'https://www.youtube.com/watch?v=FAKE_VIDEO_10'
     }
   ];
@@ -53,9 +53,9 @@ export function extractYouTubeList(doc: Document, url: string): ListPageData {
   const searchQuery = urlObj.searchParams.get('search_query') || '';
 
   return {
-    title: searchQuery ? `YouTube - ${searchQuery}` : 'YouTube',
+    title: searchQuery ? `youtube - ${searchQuery}` : 'youtube',
     items: fakeVideos,
-    modeLabel: 'Videos (Demo)',
+    modeLabel: 'videos (demo)',
     searchBox: true
   };
 }
@@ -77,17 +77,17 @@ export function extractYouTubeWatch(doc: Document): VideoPageData {
     ">
       <div style="text-align: center; padding: 40px;">
         <div style="font-size: 64px; margin-bottom: 16px; opacity: 0.5;">▶</div>
-        <div style="font-size: 18px; color: #888; margin-bottom: 8px;">Demo Video Player</div>
+        <div style="font-size: 18px; color: #888; margin-bottom: 8px;">demo video player</div>
         <div style="font-size: 14px; color: #666;">
-          Video playback simulated for demo purposes
+          video playback simulated for demo purposes
         </div>
       </div>
     </div>
   `;
 
   return {
-    title: 'Demo Video - Boring Browser Showcase',
+    title: 'demo video - boring browser showcase',
     playerHTML: fakePlayerHTML,
-    modeLabel: 'Video (Demo)'
+    modeLabel: 'video (demo)'
   };
 }
