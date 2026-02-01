@@ -32,20 +32,16 @@ export function renderListPage(data: ListPageData): string {
       type="text"
       class="boring-search"
       id="boring-search-input"
-      placeholder="Search..."
+      placeholder="search..."
     >
   ` : '';
 
   const itemsHTML = data.items.map(item => {
-    const imageHTML = item.image ? `
-      <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="boring-list-image">
-    ` : '';
-
+    // No images for anti-dopamine minimal UI
     return `
       <li class="boring-list-item">
         <a href="${escapeHtml(item.href)}" class="boring-list-link">
-          ${imageHTML}
-          <span class="boring-list-title">${escapeHtml(item.title)}</span>
+          <span class="boring-list-title">${escapeHtml(item.title.toLowerCase())}</span>
         </a>
       </li>
     `;
@@ -54,10 +50,10 @@ export function renderListPage(data: ListPageData): string {
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'List View'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'list view').toLowerCase()}</span>
       </div>
-      <h1 class="boring-title">${escapeHtml(data.title)}</h1>
+      <h1 class="boring-title">${escapeHtml(data.title.toLowerCase())}</h1>
       ${searchBoxHTML}
       <ul class="boring-list">
         ${itemsHTML}
@@ -68,16 +64,16 @@ export function renderListPage(data: ListPageData): string {
 
 export function renderArticlePage(data: ArticlePageData): string {
   const bylineHTML = data.byline ? `
-    <div class="boring-byline">${escapeHtml(data.byline)}</div>
+    <div class="boring-byline">${escapeHtml(data.byline.toLowerCase())}</div>
   ` : '';
 
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'Article View'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'article view').toLowerCase()}</span>
       </div>
-      <h1 class="boring-title">${escapeHtml(data.title)}</h1>
+      <h1 class="boring-title">${escapeHtml(data.title.toLowerCase())}</h1>
       ${bylineHTML}
       <div class="boring-content">
         ${data.contentHTML}
@@ -88,14 +84,14 @@ export function renderArticlePage(data: ArticlePageData): string {
 
 export function renderVideoPage(data: VideoPageData): string {
   const titleHTML = data.title ? `
-    <h1 class="boring-video-title">${escapeHtml(data.title)}</h1>
+    <h1 class="boring-video-title">${escapeHtml(data.title.toLowerCase())}</h1>
   ` : '';
 
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'Video View'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'video view').toLowerCase()}</span>
       </div>
       <div class="boring-video-container">
         ${titleHTML}
@@ -111,14 +107,14 @@ export function renderFallback(url: string): string {
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">Fallback View</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">fallback view</span>
       </div>
       <div class="boring-fallback">
-        <h2>Minimal view not available</h2>
-        <p>This page doesn't have a custom minimal view yet.</p>
+        <h2>minimal view not available</h2>
+        <p>this page doesn't have a custom minimal view yet.</p>
         <a href="${escapeHtml(url)}" class="boring-search-btn" data-action="reload">
-          Reload Original Page
+          reload original page
         </a>
       </div>
     </div>

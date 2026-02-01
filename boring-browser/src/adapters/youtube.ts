@@ -53,9 +53,9 @@ export function extractYouTubeList(doc: Document, url: string): ListPageData {
   const searchQuery = urlObj.searchParams.get('search_query') || '';
 
   return {
-    title: searchQuery ? `YouTube - ${searchQuery}` : 'YouTube',
+    title: searchQuery ? `youtube - ${searchQuery}` : 'youtube',
     items: fakeVideos,
-    modeLabel: 'Videos (Demo)',
+    modeLabel: 'videos (demo)',
     searchBox: true
   };
 }
@@ -77,17 +77,17 @@ export function extractYouTubeWatch(doc: Document): VideoPageData {
     ">
       <div style="text-align: center; padding: 40px;">
         <div style="font-size: 64px; margin-bottom: 16px; opacity: 0.5;">▶</div>
-        <div style="font-size: 18px; color: #888; margin-bottom: 8px;">Demo Video Player</div>
+        <div style="font-size: 18px; color: #888; margin-bottom: 8px;">demo video player</div>
         <div style="font-size: 14px; color: #666;">
-          Video playback simulated for demo purposes
+          video playback simulated for demo purposes
         </div>
       </div>
     </div>
   `;
 
   return {
-    title: 'Demo Video - Boring Browser Showcase',
+    title: 'demo video - boring browser showcase',
     playerHTML: fakePlayerHTML,
-    modeLabel: 'Video (Demo)'
+    modeLabel: 'video (demo)'
   };
 }

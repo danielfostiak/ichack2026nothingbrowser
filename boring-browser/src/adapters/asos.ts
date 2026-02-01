@@ -172,12 +172,12 @@ export function extractASOSProducts(doc: Document, url: string): ListPageData {
   }
 
   return {
-    title: `ASOS - ${pageTitle}`,
+    title: `asos - ${pageTitle.toLowerCase()}`,
     items: limitedItems.length > 0 ? limitedItems : [{
-      title: 'No products found - ASOS page may not have loaded yet',
+      title: 'no products found - asos page may not have loaded yet',
       href: 'https://www.asos.com'
     }],
-    modeLabel: 'Shopping',
+    modeLabel: 'shopping',
     searchBox: false
   };
 }
