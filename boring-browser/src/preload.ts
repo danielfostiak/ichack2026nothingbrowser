@@ -19,6 +19,35 @@ const IPC_MINIMAL_MODE_SYNC = 'get-minimal-mode-sync';
     console.warn('[Boring Browser] Failed to check minimal mode sync, applying veil:', e);
   }
 
+  const isCheckoutPath = (() => {
+    const host = location.hostname.toLowerCase();
+    const path = location.pathname.toLowerCase();
+    if (host.includes('asos.com')) {
+      return (
+        path.includes('/bag') ||
+        path.includes('/checkout') ||
+        path.includes('/payment') ||
+        path.includes('/delivery') ||
+        path.includes('/summary')
+      );
+    }
+    if (host.includes('amazon.')) {
+      return (
+        path.includes('/gp/cart') ||
+        path.includes('/cart') ||
+        path.includes('/checkout') ||
+        path.includes('/gp/buy')
+      );
+    }
+    return false;
+  })();
+
+  if (isCheckoutPath) {
+    (window as any).__boringCheckoutBypass = true;
+    console.log('[Boring Browser] Checkout path detected, skipping veil injection');
+    return;
+  }
+
   // Skip veil entirely for local files (homepage, etc.)
   if (location.protocol === 'file:') {
     console.log('[Boring Browser] Local file detected in veil IIFE, skipping veil injection');
@@ -94,9 +123,40 @@ let lastUrl = location.href;
 async function performTransformation() {
   console.log('[Boring Browser] performTransformation called for:', location.href);
 
+  const checkoutBypass =
+    (window as any).__boringCheckoutBypass ||
+    (() => {
+      const host = location.hostname.toLowerCase();
+      const path = location.pathname.toLowerCase();
+      if (host.includes('asos.com')) {
+        return (
+          path.includes('/bag') ||
+          path.includes('/checkout') ||
+          path.includes('/payment') ||
+          path.includes('/delivery') ||
+          path.includes('/summary')
+        );
+      }
+      if (host.includes('amazon.')) {
+        return (
+          path.includes('/gp/cart') ||
+          path.includes('/cart') ||
+          path.includes('/checkout') ||
+          path.includes('/gp/buy')
+        );
+      }
+      return false;
+    })();
+
   // Skip transformation for local files (homepage, etc.)
   if (location.protocol === 'file:') {
     console.log('[Boring Browser] Local file detected, skipping transformation');
+    removeVeil();
+    return;
+  }
+
+  if (checkoutBypass) {
+    console.log('[Boring Browser] Checkout path detected, skipping transformation');
     removeVeil();
     return;
   }
@@ -135,6 +195,23 @@ async function performTransformation() {
 
       if (location.hostname.includes('asos.com')) {
         await new Promise(resolve => setTimeout(resolve, 600));
+      }
+
+      if (location.hostname.includes('amazon.')) {
+        const waitForAmazonResults = async (timeoutMs = 2000, intervalMs = 50) => {
+          const start = Date.now();
+          while (Date.now() - start < timeoutMs) {
+            const hasResults =
+              document.querySelector('div[data-component-type="s-search-result"]') ||
+              document.querySelector('div[data-asin][data-component-type]') ||
+              document.querySelector('div[data-asin]');
+            if (hasResults) return true;
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
+          }
+          return false;
+        };
+        const hasResults = await waitForAmazonResults();
+        console.log('[Boring Browser] Amazon results available:', hasResults);
       }
     } else {
       console.log('[Boring Browser] Fast path enabled, skipping DOM wait');
@@ -999,7 +1076,6 @@ function setupEventHandlers() {
         target.getAttribute('data-checkout-url') ||
         (target.closest('.boring-basket') as HTMLElement | null)?.getAttribute('data-checkout-url') ||
         `${location.origin}/bag`;
-      ipcRenderer.send(IPC_CHANNELS.SET_MINIMAL_MODE, false);
       ipcRenderer.send('nav-to', checkoutUrl);
     }
   });
@@ -1147,16 +1223,22 @@ function setupSearchHandler() {
     searchInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         const query = searchInput.value.trim();
-        if (query) {
-          // Determine which search engine based on current URL
-          const currentUrl = window.location.href;
-          if (currentUrl.includes('youtube.com')) {
-            window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-          } else {
-            // Default to DuckDuckGo (paired with adapter)
-            window.location.href = `${DEFAULT_SEARCH_URL}${encodeURIComponent(query)}`;
-          }
+      if (query) {
+        // Determine which search engine based on current URL
+        const currentUrl = window.location.href;
+        if (currentUrl.includes('youtube.com')) {
+          window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+        } else if (currentUrl.includes('amazon.')) {
+          const origin = window.location.origin;
+          window.location.href = `${origin}/s?k=${encodeURIComponent(query)}`;
+        } else if (currentUrl.includes('asos.com')) {
+          const origin = window.location.origin;
+          window.location.href = `${origin}/search/?q=${encodeURIComponent(query)}`;
+        } else {
+          // Default to DuckDuckGo (paired with adapter)
+          window.location.href = `${DEFAULT_SEARCH_URL}${encodeURIComponent(query)}`;
         }
+      }
       }
     });
   }

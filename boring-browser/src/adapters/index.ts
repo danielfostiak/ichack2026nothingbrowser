@@ -6,6 +6,7 @@ import { googleAdapter } from './google';
 import { duckDuckGoAdapter } from './duckduckgo';
 import { bbcAdapter } from './bbc';
 import { asosAdapter } from './asos';
+import { amazonAdapter } from './amazon';
 import { newsGenericAdapter } from './newsGeneric';
 import { genericArticleAdapter } from './articleGeneric';
 
@@ -16,6 +17,7 @@ const adapters: Adapter[] = [
   duckDuckGoAdapter,
   bbcAdapter,
   asosAdapter,
+  amazonAdapter,
   newsGenericAdapter,
   genericArticleAdapter
 ].sort((a, b) => (b.priority || 0) - (a.priority || 0));

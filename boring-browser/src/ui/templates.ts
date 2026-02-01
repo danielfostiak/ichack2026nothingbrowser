@@ -136,7 +136,8 @@ export function renderListPage(data: ListPageData): string {
 }
 
 export function renderShoppingPage(data: ShoppingPageData): string {
-  const searchBoxHTML = data.searchBox ? `
+  const showSearch = data.searchBox !== false;
+  const searchBoxHTML = showSearch ? `
     <input
       type="text"
       class="boring-search"

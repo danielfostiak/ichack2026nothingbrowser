@@ -384,7 +384,7 @@ export function extractASOSProducts(doc: Document, url: URL): ShoppingPageData {
     title: pageTitle.replace(/\s+\|\s+ASOS.*/i, '').trim() || 'ASOS',
     items,
     modeLabel: 'Shopping',
-    searchBox: false,
+    searchBox: true,
     checkoutUrl
   };
 }
