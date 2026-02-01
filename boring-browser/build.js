@@ -41,6 +41,30 @@ esbuild.build({
     console.warn('⚠ Video file not found at assets/videoplayback.mp4');
   }
 
+  // Copy ASOS shoe images
+  const assetsDir = path.join(__dirname, 'assets');
+  const distAssetsDir = path.join(__dirname, 'dist/assets');
+
+  if (!fs.existsSync(distAssetsDir)) {
+    fs.mkdirSync(distAssetsDir, { recursive: true });
+  }
+
+  let asosImageCount = 0;
+  for (let i = 1; i <= 8; i++) {
+    const srcImg = path.join(assetsDir, `asos-shoe-${i}.jpg`);
+    const distImg = path.join(distAssetsDir, `asos-shoe-${i}.jpg`);
+    if (fs.existsSync(srcImg)) {
+      fs.copyFileSync(srcImg, distImg);
+      asosImageCount++;
+    }
+  }
+
+  if (asosImageCount > 0) {
+    console.log(`✓ ${asosImageCount} ASOS product images copied`);
+  } else {
+    console.warn('⚠ No ASOS product images found - add images to assets/asos-shoe-*.jpg');
+  }
+
   console.log('\nBuild successful! Run "npm start" to launch the browser.');
 }).catch((error) => {
   console.error('Build failed:', error);
