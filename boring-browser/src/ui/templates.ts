@@ -6,9 +6,39 @@ export interface ListItem {
   image?: string;
 }
 
+export interface ShoppingItem {
+  title: string;
+  href: string;
+  price?: string;
+  brand?: string;
+  image?: string;
+}
+
+export interface NewsItem {
+  title: string;
+  href: string;
+  source?: string;
+  time?: string;
+}
+
 export interface ListPageData {
   title: string;
   items: ListItem[];
+  modeLabel?: string;
+  searchBox?: boolean;
+}
+
+export interface ShoppingPageData {
+  title: string;
+  items: ShoppingItem[];
+  modeLabel?: string;
+  searchBox?: boolean;
+  checkoutUrl?: string;
+}
+
+export interface NewsPageData {
+  title: string;
+  items: NewsItem[];
   modeLabel?: string;
   searchBox?: boolean;
 }
@@ -30,10 +60,12 @@ export interface FallbackPageData {
   url: string;
 }
 
-export type TemplateId = 'list' | 'article' | 'video' | 'fallback';
+export type TemplateId = 'list' | 'shopping' | 'news' | 'article' | 'video' | 'fallback';
 
 export type TemplateDataMap = {
   list: ListPageData;
+  shopping: ShoppingPageData;
+  news: NewsPageData;
   article: ArticlePageData;
   video: VideoPageData;
   fallback: FallbackPageData;
@@ -49,6 +81,10 @@ export function renderTemplate(result: TemplateResult): string {
   switch (result.template) {
     case 'list':
       return renderListPage(result.data);
+    case 'shopping':
+      return renderShoppingPage(result.data);
+    case 'news':
+      return renderNewsPage(result.data);
     case 'article':
       return renderArticlePage(result.data);
     case 'video':
@@ -93,6 +129,135 @@ export function renderListPage(data: ListPageData): string {
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
       ${searchBoxHTML}
       <ul class="boring-list">
+        ${itemsHTML}
+      </ul>
+    </div>
+  `;
+}
+
+export function renderShoppingPage(data: ShoppingPageData): string {
+  const searchBoxHTML = data.searchBox ? `
+    <input
+      type="text"
+      class="boring-search"
+      id="boring-search-input"
+      placeholder="Search products..."
+    >
+  ` : '';
+
+  const itemsHTML = data.items.map(item => {
+    const imageHTML = item.image ? `
+      <div class="boring-shopping-image">
+        <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}">
+      </div>
+    ` : '';
+
+    const metaParts = [
+      item.brand ? `<span class="boring-shopping-brand">${escapeHtml(item.brand)}</span>` : '',
+      item.price ? `<span class="boring-shopping-price">${escapeHtml(item.price)}</span>` : ''
+    ].filter(Boolean).join('');
+
+    const metaHTML = metaParts ? `
+      <div class="boring-shopping-meta">${metaParts}</div>
+    ` : '';
+
+    return `
+      <div class="boring-shopping-card">
+        ${imageHTML}
+        <div class="boring-shopping-info">
+          <div class="boring-shopping-title">${escapeHtml(item.title)}</div>
+          ${metaHTML}
+        </div>
+        <button
+          class="boring-shopping-add"
+          data-action="add-to-basket"
+          data-item-id="${escapeHtml(item.href)}"
+          data-item-title="${escapeHtml(item.title)}"
+          data-item-price="${escapeHtml(item.price || '')}"
+          data-item-brand="${escapeHtml(item.brand || '')}"
+          data-item-image="${escapeHtml(item.image || '')}"
+          data-item-href="${escapeHtml(item.href)}"
+        >
+          Add to basket
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  const emptyHTML = data.items.length === 0
+    ? `<div class="boring-shopping-empty">No products found yet.</div>`
+    : '';
+
+  const checkoutUrl = data.checkoutUrl ? escapeHtml(data.checkoutUrl) : '';
+
+  return `
+    <div class="boring-container boring-shopping">
+      <div class="boring-header">
+        <button class="boring-back-btn" data-action="back">← Back</button>
+        <span class="boring-mode-label">${data.modeLabel || 'Shopping'}</span>
+      </div>
+      <h1 class="boring-title">${escapeHtml(data.title)}</h1>
+      ${searchBoxHTML}
+      <section class="boring-basket" data-checkout-url="${checkoutUrl}">
+        <div class="boring-basket-header">
+          <div>
+            <div class="boring-basket-title">Basket</div>
+            <div class="boring-basket-meta">
+              <span class="boring-basket-count">0</span> items ·
+              <span class="boring-basket-total">—</span>
+            </div>
+          </div>
+          <button class="boring-basket-checkout" data-action="checkout" data-checkout-url="${checkoutUrl}">
+            Checkout
+          </button>
+        </div>
+        <div class="boring-basket-list"></div>
+        <div class="boring-basket-empty">Your basket is empty.</div>
+      </section>
+      <div class="boring-shopping-grid">
+        ${itemsHTML}
+        ${emptyHTML}
+      </div>
+    </div>
+  `;
+}
+
+export function renderNewsPage(data: NewsPageData): string {
+  const searchBoxHTML = data.searchBox ? `
+    <input
+      type="text"
+      class="boring-search"
+      id="boring-search-input"
+      placeholder="Search news..."
+    >
+  ` : '';
+
+  const itemsHTML = data.items.map(item => {
+    const metaParts = [
+      item.source ? escapeHtml(item.source) : '',
+      item.time ? escapeHtml(item.time) : ''
+    ].filter(Boolean);
+    const metaText = metaParts.join(' · ');
+
+    return `
+      <li class="boring-news-item">
+        <a href="${escapeHtml(item.href)}" class="boring-news-link">
+          <span class="boring-news-title">${escapeHtml(item.title)}</span>
+          ${metaText ? `<span class="boring-news-meta">${metaText}</span>` : ''}
+        </a>
+      </li>
+    `;
+  }).join('');
+
+  return `
+    <div class="boring-container">
+      <div class="boring-header">
+        <button class="boring-back-btn" data-action="back">← Back</button>
+        <span class="boring-mode-label">${data.modeLabel || 'News'}</span>
+      </div>
+      <h1 class="boring-title">${escapeHtml(data.title)}</h1>
+      ${searchBoxHTML}
+      <ul class="boring-news-list">
         ${itemsHTML}
       </ul>
     </div>

@@ -6,6 +6,7 @@ import { googleAdapter } from './google';
 import { duckDuckGoAdapter } from './duckduckgo';
 import { bbcAdapter } from './bbc';
 import { asosAdapter } from './asos';
+import { newsGenericAdapter } from './newsGeneric';
 import { genericArticleAdapter } from './articleGeneric';
 
 // Add new adapters here to extend coverage.
@@ -15,6 +16,7 @@ const adapters: Adapter[] = [
   duckDuckGoAdapter,
   bbcAdapter,
   asosAdapter,
+  newsGenericAdapter,
   genericArticleAdapter
 ].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 

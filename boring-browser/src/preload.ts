@@ -132,6 +132,10 @@ async function performTransformation() {
 
       // Wait for dynamic content to fully load (BBC needs this)
       await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (location.hostname.includes('asos.com')) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
     } else {
       console.log('[Boring Browser] Fast path enabled, skipping DOM wait');
     }
@@ -185,6 +189,28 @@ async function performTransformation() {
     console.log('[Boring Browser] Running transformation...');
     const transformResult = runTransform(location.href, document);
     console.log('[Boring Browser] Adapter result:', transformResult.template);
+
+    const isFallbackCleanup = transformResult.template === 'fallback';
+    if (isFallbackCleanup) {
+      console.log('[Boring Browser] Fallback cleanup mode enabled');
+      applyFallbackCleanup();
+
+      // Mark as transformed
+      hasTransformed = true;
+      lastUrl = location.href;
+
+      // Reveal the page
+      console.log('[Boring Browser] Revealing page...');
+      removeVeil();
+      console.log('[Boring Browser] Transformation complete!');
+
+      // Set up event handlers
+      setupEventHandlers();
+      setupSearchHandler();
+      setupNavigationDetection();
+      return;
+    }
+
     const transformedHTML = renderTemplate(transformResult);
     console.log('[Boring Browser] Transformation complete, HTML length:', transformedHTML.length);
 
@@ -557,6 +583,212 @@ async function performTransformation() {
         }
       };
 
+      function applyFallbackCleanup() {
+        const html = document.documentElement;
+        const body = document.body;
+        const head = document.head || document.documentElement;
+        if (!head) return;
+
+        const styleId = 'boring-fallback-cleanup-style';
+        let style = document.getElementById(styleId) as HTMLStyleElement | null;
+        if (!style) {
+          style = document.createElement('style');
+          style.id = styleId;
+          head.appendChild(style);
+        }
+
+        style.textContent = `
+          html, body {
+            overflow: auto !important;
+            color-scheme: dark;
+          }
+          html.boring-fallback-dark {
+            filter: invert(1) hue-rotate(180deg);
+            background: #0b0b0c !important;
+          }
+          html.boring-fallback-dark img,
+          html.boring-fallback-dark video,
+          html.boring-fallback-dark picture,
+          html.boring-fallback-dark svg,
+          html.boring-fallback-dark canvas,
+          html.boring-fallback-dark iframe {
+            filter: invert(1) hue-rotate(180deg) !important;
+          }
+          body.modal-open,
+          html.modal-open,
+          body.no-scroll,
+          html.no-scroll {
+            overflow: auto !important;
+          }
+          [aria-modal="true"],
+          [role="dialog"],
+          .modal,
+          .popup,
+          .overlay,
+          .backdrop,
+          .tp-modal,
+          .tp-backdrop,
+          .tp-container,
+          .piano,
+          .paywall,
+          .interstitial,
+          .newsletter,
+          .subscribe,
+          .cookie,
+          .consent,
+          .gdpr,
+          #qc-cmp2-container,
+          .qc-cmp2-container,
+          #onetrust-consent-sdk,
+          .ot-sdk-container,
+          .didomi,
+          #didomi-notice,
+          [id^="sp_message_container_"],
+          .sp-message-open {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          ins.adsbygoogle,
+          .adsbygoogle,
+          [data-ad],
+          [data-ads],
+          [data-ad-slot],
+          [data-adunit],
+          [data-testid*="ad"],
+          [data-testid*="sponsor"],
+          [id^="ad-"],
+          [id^="ad_"],
+          [id*="-ad-"],
+          [id*="_ad_"],
+          [class^="ad-"],
+          [class^="ad_"],
+          [class*=" ad-"],
+          [class*=" ad_"],
+          [class*=" ads-"],
+          [class*=" advert"],
+          [class*=" sponsor"],
+          [class*=" promo"],
+          [class*=" banner"],
+          [class*=" outbrain"],
+          [class*=" taboola"] {
+            display: none !important;
+          }
+          iframe[src*="doubleclick"],
+          iframe[src*="googlesyndication"],
+          iframe[src*="adservice"],
+          iframe[src*="adsystem"],
+          iframe[src*="adnxs"],
+          iframe[src*="taboola"],
+          iframe[src*="outbrain"],
+          iframe[src*="piano"],
+          iframe[src*="tinypass"],
+          iframe[src*="criteo"],
+          iframe[src*="moatads"],
+          iframe[src*="pubmatic"],
+          iframe[src*="openx"] {
+            display: none !important;
+          }
+        `;
+
+        const cleanupOnce = () => {
+          if (html) {
+            html.classList.add('boring-fallback-dark');
+            html.style.setProperty('overflow', 'auto', 'important');
+            html.style.setProperty('position', 'static', 'important');
+            html.classList.remove('modal-open', 'no-scroll', 'tp-modal-open', 'paywall-open');
+          }
+          if (body) {
+            body.style.setProperty('overflow', 'auto', 'important');
+            body.style.setProperty('position', 'static', 'important');
+            body.classList.remove('modal-open', 'no-scroll', 'tp-modal-open', 'paywall-open');
+          }
+
+          const overlaySelectors = [
+            '[aria-modal="true"]',
+            '[role="dialog"]',
+            '.modal',
+            '.popup',
+            '.overlay',
+            '.backdrop',
+            '.tp-modal',
+            '.tp-backdrop',
+            '.tp-container',
+            '.piano',
+            '.paywall',
+            '.interstitial',
+            '.newsletter',
+            '.subscribe',
+            '.cookie',
+            '.consent',
+            '.gdpr',
+            '#qc-cmp2-container',
+            '.qc-cmp2-container',
+            '#onetrust-consent-sdk',
+            '.ot-sdk-container',
+            '.didomi',
+            '#didomi-notice',
+            '[id^="sp_message_container_"]'
+          ];
+
+          overlaySelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => el.remove());
+          });
+
+          document.querySelectorAll('iframe').forEach(frame => {
+            const src = frame.getAttribute('src') || '';
+            if (
+              /doubleclick|googlesyndication|adservice|adsystem|adnxs|taboola|outbrain|piano|tinypass|criteo|moatads|pubmatic|openx/i.test(
+                src
+              )
+            ) {
+              frame.remove();
+            }
+          });
+
+          const viewportArea = window.innerWidth * window.innerHeight;
+          const candidates = document.querySelectorAll('body *');
+          const keywordRegex =
+            /(cookie|consent|subscribe|newsletter|sign up|sign in|log in|paywall|popup|overlay|modal|adblock|advert)/i;
+
+          candidates.forEach(el => {
+            const element = el as HTMLElement;
+            const style = window.getComputedStyle(element);
+            if (style.position !== 'fixed' && style.position !== 'sticky') return;
+
+            const rect = element.getBoundingClientRect();
+            const area = rect.width * rect.height;
+            if (area < viewportArea * 0.2) return;
+
+            const zIndex = parseInt(style.zIndex || '0', 10);
+            const attributes = `${element.id} ${element.className}`.toLowerCase();
+            const text = (element.textContent || '').toLowerCase();
+
+            if (keywordRegex.test(attributes) || keywordRegex.test(text) || zIndex >= 1000) {
+              element.remove();
+            }
+          });
+        };
+
+        cleanupOnce();
+
+        let cleanupScheduled = false;
+        const scheduleCleanup = () => {
+          if (cleanupScheduled) return;
+          cleanupScheduled = true;
+          setTimeout(() => {
+            cleanupScheduled = false;
+            cleanupOnce();
+          }, 120);
+        };
+
+        const observer = new MutationObserver(scheduleCleanup);
+        const root = document.body || document.documentElement;
+        if (root) {
+          observer.observe(root, { childList: true, subtree: true });
+          setTimeout(() => observer.disconnect(), 5000);
+        }
+      }
+
       if (isYouTubeWatch) {
         applyYouTubeWatchMinimal();
       } else {
@@ -699,6 +931,9 @@ async function performTransformation() {
     // Set up search handler if search box exists
     setupSearchHandler();
 
+    // Populate basket UI if present
+    updateBasketUI();
+
     // Set up SPA navigation detection
     setupNavigationDetection();
 
@@ -736,7 +971,8 @@ function removeVeil() {
 function setupEventHandlers() {
   // Handle all data-action buttons
   document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
+    const target = (e.target as HTMLElement | null)?.closest('[data-action]') as HTMLElement | null;
+    if (!target) return;
     const action = target.getAttribute('data-action');
 
     if (action === 'back') {
@@ -745,8 +981,162 @@ function setupEventHandlers() {
     } else if (action === 'reload') {
       e.preventDefault();
       window.location.reload();
+    } else if (action === 'add-to-basket') {
+      e.preventDefault();
+      const item = readBasketItem(target);
+      if (item) {
+        addToBasket(item);
+      }
+    } else if (action === 'remove-from-basket') {
+      e.preventDefault();
+      const id = target.getAttribute('data-item-id') || '';
+      if (id) {
+        removeFromBasket(id);
+      }
+    } else if (action === 'checkout') {
+      e.preventDefault();
+      const checkoutUrl =
+        target.getAttribute('data-checkout-url') ||
+        (target.closest('.boring-basket') as HTMLElement | null)?.getAttribute('data-checkout-url') ||
+        `${location.origin}/bag`;
+      ipcRenderer.send(IPC_CHANNELS.SET_MINIMAL_MODE, false);
+      ipcRenderer.send('nav-to', checkoutUrl);
     }
   });
+}
+
+type BasketItem = {
+  id: string;
+  title: string;
+  price?: string;
+  brand?: string;
+  image?: string;
+  href?: string;
+  quantity: number;
+};
+
+function readBasketItem(el: HTMLElement): BasketItem | null {
+  const id = el.getAttribute('data-item-id') || '';
+  const title = el.getAttribute('data-item-title') || '';
+  if (!id || !title) return null;
+  return {
+    id,
+    title,
+    price: el.getAttribute('data-item-price') || undefined,
+    brand: el.getAttribute('data-item-brand') || undefined,
+    image: el.getAttribute('data-item-image') || undefined,
+    href: el.getAttribute('data-item-href') || undefined,
+    quantity: 1
+  };
+}
+
+function getBasket(): BasketItem[] {
+  try {
+    const raw = window.localStorage.getItem('boring-basket');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item => item && item.id && item.title);
+  } catch {
+    return [];
+  }
+}
+
+function saveBasket(items: BasketItem[]) {
+  window.localStorage.setItem('boring-basket', JSON.stringify(items));
+  updateBasketUI();
+}
+
+function addToBasket(item: BasketItem) {
+  const basket = getBasket();
+  const existing = basket.find(entry => entry.id === item.id);
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    basket.push(item);
+  }
+  saveBasket(basket);
+}
+
+function removeFromBasket(id: string) {
+  const basket = getBasket();
+  const index = basket.findIndex(entry => entry.id === id);
+  if (index === -1) return;
+  const item = basket[index];
+  if (item.quantity > 1) {
+    item.quantity -= 1;
+  } else {
+    basket.splice(index, 1);
+  }
+  saveBasket(basket);
+}
+
+function parsePrice(value?: string): number | null {
+  if (!value) return null;
+  const cleaned = value.replace(/[^0-9.,]/g, '').trim();
+  if (!cleaned) return null;
+  const normalized = cleaned.includes(',') && !cleaned.includes('.')
+    ? cleaned.replace(',', '.')
+    : cleaned.replace(/,/g, '');
+  const parsed = Number.parseFloat(normalized);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function updateBasketUI() {
+  const basket = getBasket();
+  const basketEl = document.querySelector('.boring-basket') as HTMLElement | null;
+  if (!basketEl) return;
+
+  const listEl = basketEl.querySelector('.boring-basket-list') as HTMLElement | null;
+  const emptyEl = basketEl.querySelector('.boring-basket-empty') as HTMLElement | null;
+  const countEl = basketEl.querySelector('.boring-basket-count') as HTMLElement | null;
+  const totalEl = basketEl.querySelector('.boring-basket-total') as HTMLElement | null;
+  const checkoutBtn = basketEl.querySelector('.boring-basket-checkout') as HTMLButtonElement | null;
+
+  if (countEl) {
+    const count = basket.reduce((sum, item) => sum + item.quantity, 0);
+    countEl.textContent = String(count);
+  }
+
+  if (totalEl) {
+    const total = basket.reduce((sum, item) => {
+      const price = parsePrice(item.price);
+      return price ? sum + price * item.quantity : sum;
+    }, 0);
+    totalEl.textContent = total > 0 ? `$${total.toFixed(2)}` : '—';
+  }
+
+  if (checkoutBtn) {
+    checkoutBtn.disabled = basket.length === 0;
+  }
+
+  if (!listEl) return;
+
+  if (basket.length === 0) {
+    listEl.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  listEl.innerHTML = basket.map(item => {
+    const meta = [item.brand, item.price].filter(Boolean).join(' · ');
+    return `
+      <div class="boring-basket-item">
+        <div class="boring-basket-item-info">
+          <div class="boring-basket-item-title">${item.title}</div>
+          ${meta ? `<div class="boring-basket-item-meta">${meta}</div>` : ''}
+        </div>
+        <div class="boring-basket-item-actions">
+          <span class="boring-basket-item-qty">x${item.quantity}</span>
+          <button class="boring-basket-remove" data-action="remove-from-basket" data-item-id="${item.id}">
+            Remove
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function setupSearchHandler() {

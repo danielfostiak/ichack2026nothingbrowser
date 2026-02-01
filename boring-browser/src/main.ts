@@ -6,6 +6,7 @@ let mainWindow: BrowserWindow | null = null;
 let browserView: BrowserView | null = null;
 let minimalModeEnabled = true;
 let cspStripperInstalled = false;
+let ipcHandlersInstalled = false;
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -216,38 +217,42 @@ function createWindow() {
   // Note: We rely on preload veil + dark BrowserView background for zero-flicker
   // No CSS injection here as it interferes with minimal mode toggle
 
-  // Navigation handlers
-  ipcMain.on('nav-back', () => {
-    if (browserView && browserView.webContents.canGoBack()) {
-      browserView.webContents.goBack();
-    }
-  });
+  // Navigation handlers (install once)
+  if (!ipcHandlersInstalled) {
+    ipcHandlersInstalled = true;
 
-  ipcMain.on('nav-forward', () => {
-    if (browserView && browserView.webContents.canGoForward()) {
-      browserView.webContents.goForward();
-    }
-  });
+    ipcMain.on('nav-back', () => {
+      if (browserView && browserView.webContents.canGoBack()) {
+        browserView.webContents.goBack();
+      }
+    });
 
-  ipcMain.on('nav-refresh', () => {
-    if (browserView) {
-      browserView.webContents.reload();
-    }
-  });
+    ipcMain.on('nav-forward', () => {
+      if (browserView && browserView.webContents.canGoForward()) {
+        browserView.webContents.goForward();
+      }
+    });
 
-  ipcMain.on('nav-to', (event, url: string) => {
-    if (browserView) {
-      browserView.webContents.loadURL(url);
-    }
-  });
+    ipcMain.on('nav-refresh', () => {
+      if (browserView) {
+        browserView.webContents.reload();
+      }
+    });
 
-  ipcMain.on('toggle-minimal', () => {
-    minimalModeEnabled = !minimalModeEnabled;
-    mainWindow?.webContents.send('minimal-mode-changed', minimalModeEnabled);
-    if (browserView) {
-      browserView.webContents.reload();
-    }
-  });
+    ipcMain.on('nav-to', (event, url: string) => {
+      if (browserView) {
+        browserView.webContents.loadURL(url);
+      }
+    });
+
+    ipcMain.on('toggle-minimal', () => {
+      minimalModeEnabled = !minimalModeEnabled;
+      mainWindow?.webContents.send('minimal-mode-changed', minimalModeEnabled);
+      if (browserView) {
+        browserView.webContents.reloadIgnoringCache();
+      }
+    });
+  }
 
   // Track URL changes
   if (browserView) {
@@ -321,6 +326,11 @@ ipcMain.handle(IPC_CHANNELS.GET_MINIMAL_MODE, () => {
 
 ipcMain.on(IPC_CHANNELS.GET_MINIMAL_MODE_SYNC, (event) => {
   event.returnValue = minimalModeEnabled;
+});
+
+ipcMain.on(IPC_CHANNELS.SET_MINIMAL_MODE, (event, enabled: boolean) => {
+  minimalModeEnabled = !!enabled;
+  mainWindow?.webContents.send('minimal-mode-changed', minimalModeEnabled);
 });
 
 ipcMain.on(IPC_CHANNELS.LOG, (event, ...args) => {
