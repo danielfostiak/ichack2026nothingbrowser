@@ -198,7 +198,7 @@ export const newsGenericAdapter: Adapter = {
     const data: NewsPageData = {
       title: siteName,
       items,
-      modeLabel: 'News',
+      modeLabel: 'news',
       searchBox: false
     };
 
@@ -208,4 +208,3 @@ export const newsGenericAdapter: Adapter = {
     };
   }
 };
-

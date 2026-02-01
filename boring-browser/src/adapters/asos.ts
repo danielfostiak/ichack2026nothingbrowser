@@ -383,7 +383,7 @@ export function extractASOSProducts(doc: Document, url: URL): ShoppingPageData {
   return {
     title: pageTitle.replace(/\s+\|\s+ASOS.*/i, '').trim() || 'ASOS',
     items,
-    modeLabel: 'Shopping',
+    modeLabel: 'shopping',
     searchBox: true,
     checkoutUrl
   };
@@ -409,7 +409,7 @@ export const asosAdapter: Adapter = {
         data: {
           title: data.title || 'ASOS',
           items: categories,
-          modeLabel: 'Shopping',
+          modeLabel: 'shopping',
           searchBox: false
         }
       };

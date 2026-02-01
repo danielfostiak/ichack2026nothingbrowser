@@ -44,7 +44,7 @@ export function extractDuckDuckGoResults(doc: Document, url: string): ListPageDa
   const seen = new Set<string>();
 
   const urlObj = new URL(url);
-  const query = urlObj.searchParams.get('q') || 'Search Results';
+  const query = urlObj.searchParams.get('q') || 'search results';
 
   const selector = [
     'a[data-testid="result-title-a"]',
@@ -89,12 +89,12 @@ export function extractDuckDuckGoResults(doc: Document, url: string): ListPageDa
   }
 
   return {
-    title: `Search: ${query}`,
+    title: `search: ${query}`.toLowerCase(),
     items: items.length > 0 ? items : [{
       title: 'No results found - try a different search',
       href: 'https://duckduckgo.com'
     }],
-    modeLabel: 'DuckDuckGo',
+    modeLabel: 'duckduckgo',
     searchBox: true
   };
 }

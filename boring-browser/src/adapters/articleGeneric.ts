@@ -16,10 +16,10 @@ function extractGenericArticle(doc: Document): ArticlePageData | null {
   }
 
   return {
-    title: article.title || 'Untitled Article',
+    title: article.title || 'untitled article',
     byline: article.byline || undefined,
     contentHTML: article.content || '<p>No content available</p>',
-    modeLabel: 'Article'
+    modeLabel: 'article'
   };
 }
 

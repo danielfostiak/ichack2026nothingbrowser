@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Boring Browser</title>
+  <title>boring browser</title>
   <style>
     * {
       margin: 0;
@@ -12,7 +12,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: "Georgia", "Times New Roman", serif;
       background: #0b0b0c;
       color: #e8e8e8;
       display: flex;
@@ -20,6 +20,39 @@
       justify-content: center;
       min-height: 100vh;
       padding: 20px;
+      text-transform: lowercase;
+    }
+
+    .home {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      width: min(680px, 100%);
+    }
+
+    .logo {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      max-width: 600px;
+      z-index: 1;
+    }
+
+    .logo-image {
+      width: 66%;
+      height: auto;
+      display: block;
+    }
+
+    .search-wrap {
+      position: relative;
+      width: 100%;
+      z-index: 3;
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
     }
 
     .search-box {
@@ -33,6 +66,7 @@
       color: #e8e8e8;
       outline: none;
       transition: all 0.2s;
+      text-transform: lowercase;
     }
 
     .search-box:focus {
@@ -41,17 +75,25 @@
 
     .search-box::placeholder {
       color: #666;
+      text-transform: lowercase;
     }
   </style>
 </head>
 <body>
-  <input
-    type="text"
-    class="search-box"
-    id="search-input"
-    placeholder="Search or enter URL"
-    autofocus
-  >
+  <div class="home">
+    <div class="logo" aria-label="nothing">
+      <img class="logo-image" src="assets/logo.png" alt="nothing logo">
+    </div>
+    <div class="search-wrap">
+      <input
+        type="text"
+        class="search-box"
+        id="search-input"
+    placeholder="search or enter url"
+        autofocus
+      >
+    </div>
+  </div>
 
   <script>
     const searchInput = document.getElementById('search-input');

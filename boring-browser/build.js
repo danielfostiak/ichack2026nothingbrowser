@@ -65,6 +65,15 @@ esbuild.build({
     console.warn('⚠ No ASOS product images found - add images to assets/asos-shoe-*.jpg');
   }
 
+  const logoSrc = path.join(assetsDir, 'logo.png');
+  const logoDest = path.join(distAssetsDir, 'logo.png');
+  if (fs.existsSync(logoSrc)) {
+    fs.copyFileSync(logoSrc, logoDest);
+    console.log('✓ Logo image copied');
+  } else {
+    console.warn('⚠ Logo image not found - add assets/logo.png');
+  }
+
   console.log('\nBuild successful! Run "npm start" to launch the browser.');
 }).catch((error) => {
   console.error('Build failed:', error);

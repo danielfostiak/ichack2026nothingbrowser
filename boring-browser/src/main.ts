@@ -2,6 +2,8 @@ import { app, BrowserWindow, BrowserView, ipcMain, WebContents } from 'electron'
 import * as path from 'node:path';
 import { IPC_CHANNELS } from './ipc';
 
+app.setName('nothing');
+
 let mainWindow: BrowserWindow | null = null;
 let minimalModeEnabled = true;
 let cspStripperInstalled = false;
@@ -42,25 +44,26 @@ const getTabDisplayUrl = (tab: Tab): string => {
 };
 
 const truncateTabLabel = (value: string, maxLen = 26) => {
-  if (value.length <= maxLen) return value;
-  return value.slice(0, Math.max(0, maxLen - 3)).trimEnd() + '...';
+  const normalized = value.toLowerCase();
+  if (normalized.length <= maxLen) return normalized;
+  return normalized.slice(0, Math.max(0, maxLen - 3)).trimEnd() + '...';
 };
 
 const getYouTubeTabTitle = (parsed: URL, host: string) => {
   const path = parsed.pathname;
   if (path === '/watch' || path.startsWith('/shorts') || host === 'youtu.be') {
-    return 'YouTube: Watch';
+    return 'youtube: watch';
   }
   if (path === '/results') {
     const query = parsed.searchParams.get('search_query') || parsed.searchParams.get('q');
-    return query ? `YouTube: ${truncateTabLabel(query)}` : 'YouTube: Search';
+    return query ? `youtube: ${truncateTabLabel(query)}` : 'youtube: search';
   }
-  return 'YouTube';
+  return 'youtube';
 };
 
 const getDuckDuckGoTabTitle = (parsed: URL) => {
   const query = parsed.searchParams.get('q');
-  return query ? `DuckDuckGo: ${truncateTabLabel(query)}` : 'DuckDuckGo';
+  return query ? `duckduckgo: ${truncateTabLabel(query)}` : 'duckduckgo';
 };
 
 const getHostBasedTitle = (parsed: URL): string | null => {
@@ -70,19 +73,19 @@ const getHostBasedTitle = (parsed: URL): string | null => {
     return getYouTubeTabTitle(parsed, host);
   }
   if (host.includes('bbc.co.uk') || host.includes('bbc.com')) {
-    return 'BBC News';
+    return 'bbc news';
   }
   if (host.includes('amazon.')) {
-    return 'Amazon';
+    return 'amazon';
   }
   if (host.includes('asos.com')) {
-    return 'ASOS';
+    return 'asos';
   }
   if (host.includes('duckduckgo.com')) {
     return getDuckDuckGoTabTitle(parsed);
   }
   if (host.includes('google.')) {
-    return 'Google';
+    return 'google';
   }
 
   return host || null;
@@ -91,24 +94,25 @@ const getHostBasedTitle = (parsed: URL): string | null => {
 const getTabDisplayTitle = (tab: Tab): string => {
   const url = tab.url;
   if (url.startsWith('file://')) {
-    return 'New Tab';
+    return 'new tab';
   }
 
   const rawTitle = tab.title.trim();
-  const isGenericTitle = rawTitle.toLowerCase().startsWith('boring browser');
+  const normalizedTitle = rawTitle.toLowerCase();
+  const isGenericTitle = normalizedTitle.startsWith('boring browser');
   if (rawTitle && !isGenericTitle) {
-    return rawTitle;
+    return normalizedTitle;
   }
 
   if (!url) {
-    return 'New Tab';
+    return 'new tab';
   }
 
   try {
     const parsed = new URL(url);
-    return getHostBasedTitle(parsed) || url;
+    return (getHostBasedTitle(parsed) || url).toLowerCase();
   } catch {
-    return url;
+    return url.toLowerCase();
   }
 };
 
@@ -296,15 +300,22 @@ const reloadAllTabs = () => {
 
 function createWindow() {
   chromeReady = false;
-  mainWindow = new BrowserWindow({
+  const isMac = process.platform === 'darwin';
+  const windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 1400,
     height: 1000,
     backgroundColor: '#0b0b0c',
+    title: '',
+    titleBarStyle: isMac ? 'hiddenInset' : undefined,
+    trafficLightPosition: isMac ? { x: 14, y: 14 } : undefined,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
     }
-  });
+  };
+
+  mainWindow = new BrowserWindow(windowOptions);
+  mainWindow.setTitle('');
 
   // Create the browser chrome UI
   const chromeHTML = `
@@ -312,8 +323,9 @@ function createWindow() {
     <html>
     <head>
       <meta charset="UTF-8">
+      <title></title>
       <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; text-transform: lowercase; }
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           background: #1a1a1c;
@@ -324,6 +336,12 @@ function createWindow() {
           gap: 6px;
           padding: 8px 12px;
           -webkit-app-region: drag;
+          text-transform: lowercase;
+        }
+        input::placeholder { text-transform: lowercase; }
+        input, button { text-transform: lowercase; }
+        body.platform-mac .tabbar {
+          padding-left: 88px;
         }
         button {
           -webkit-app-region: no-drag;
@@ -339,19 +357,25 @@ function createWindow() {
         button:hover { background: #3a3a3c; }
         button:active { background: #252527; }
         button.active {
-          background: #007acc;
-          border-color: #007acc;
+          background: #f5f5f5;
+          border-color: #f5f5f5;
+          color: #0b0b0c;
         }
         .tabbar {
           display: flex;
           align-items: center;
           gap: 6px;
         }
+        :root {
+          --tab-height: 32px;
+        }
         .tabs {
           display: flex;
           align-items: center;
           gap: 6px;
-          flex: 1;
+          flex: 0 1 auto;
+          width: max-content;
+          max-width: calc(100% - 52px);
           overflow-x: auto;
           padding-bottom: 2px;
         }
@@ -365,7 +389,8 @@ function createWindow() {
           background: #2a2a2c;
           border: 1px solid #3a3a3c;
           color: #e0e0e0;
-          padding: 6px 10px;
+          height: var(--tab-height);
+          padding: 0 10px;
           border-radius: 6px;
           font-size: 12px;
           cursor: pointer;
@@ -373,6 +398,9 @@ function createWindow() {
         .tab.active {
           background: #353538;
           border-color: #4a4a4c;
+        }
+        .tab.dragging {
+          opacity: 0.5;
         }
         .tab-title {
           overflow: hidden;
@@ -392,8 +420,15 @@ function createWindow() {
         }
         .tab-close:hover { color: #fff; }
         #new-tab {
-          padding: 4px 10px;
+          width: var(--tab-height);
+          height: var(--tab-height);
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           font-weight: 600;
+          position: relative;
+          top: -1px;
         }
         input {
           -webkit-app-region: no-drag;
@@ -418,16 +453,16 @@ function createWindow() {
     <body>
       <div class="tabbar">
         <div id="tabs" class="tabs"></div>
-        <button id="new-tab" title="New Tab">+</button>
+        <button id="new-tab" title="new tab">+</button>
       </div>
       <div class="toolbar">
         <div class="nav-group">
-          <button id="back" title="Back">←</button>
-          <button id="forward" title="Forward">→</button>
-          <button id="refresh" title="Refresh">⟳</button>
+          <button id="back" title="back">←</button>
+          <button id="forward" title="forward">→</button>
+          <button id="refresh" title="refresh">⟳</button>
         </div>
-        <input type="text" id="url" placeholder="Enter URL...">
-        <button id="minimal-toggle" class="active">Minimal Mode</button>
+        <input type="text" id="url" placeholder="enter url...">
+        <button id="minimal-toggle" class="active">minimal mode</button>
       </div>
       <script>
         const { ipcRenderer } = require('electron');
@@ -440,21 +475,50 @@ function createWindow() {
         const urlInput = document.getElementById('url');
         const minimalToggle = document.getElementById('minimal-toggle');
 
+        document.body.classList.toggle('platform-mac', process.platform === 'darwin');
+
+        let dragTabId = null;
+        let dragTabEl = null;
+
+        const getDragAfterElement = (container, x) => {
+          const draggableElements = Array.from(container.querySelectorAll('.tab:not(.dragging)'));
+          let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+          draggableElements.forEach((child) => {
+            const box = child.getBoundingClientRect();
+            const offset = x - (box.left + box.width / 2);
+            if (offset < 0 && offset > closest.offset) {
+              closest = { offset, element: child };
+            }
+          });
+          return closest.element;
+        };
+
+        const finalizeTabOrder = () => {
+          if (!dragTabEl) return;
+          const newOrder = Array.from(tabsEl.querySelectorAll('.tab'))
+            .map(node => Number(node.getAttribute('data-tab-id')))
+            .filter(id => Number.isFinite(id));
+          ipcRenderer.send('tabs-reorder', newOrder);
+          dragTabEl = null;
+          dragTabId = null;
+        };
+
         const renderTabs = (tabs, activeTabId) => {
           tabsEl.innerHTML = '';
           tabs.forEach(tab => {
             const tabEl = document.createElement('div');
             tabEl.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
             tabEl.setAttribute('data-tab-id', String(tab.id));
+            tabEl.setAttribute('draggable', 'true');
 
             const titleEl = document.createElement('span');
             titleEl.className = 'tab-title';
-            titleEl.textContent = tab.title || 'New Tab';
+            titleEl.textContent = (tab.title || 'new tab').toLowerCase();
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'tab-close';
             closeBtn.textContent = '×';
-            closeBtn.title = 'Close Tab';
+            closeBtn.title = 'close tab';
             closeBtn.addEventListener('click', (e) => {
               e.stopPropagation();
               ipcRenderer.send('tabs-close', tab.id);
@@ -462,13 +526,44 @@ function createWindow() {
 
             tabEl.appendChild(titleEl);
             tabEl.appendChild(closeBtn);
+
             tabEl.addEventListener('click', () => {
               ipcRenderer.send('tabs-activate', tab.id);
+            });
+
+            tabEl.addEventListener('dragstart', (event) => {
+              dragTabId = tab.id;
+              dragTabEl = tabEl;
+              tabEl.classList.add('dragging');
+              event.dataTransfer.setData('text/plain', String(tab.id));
+              event.dataTransfer.effectAllowed = 'move';
+            });
+
+            tabEl.addEventListener('dragend', () => {
+              tabEl.classList.remove('dragging');
+              finalizeTabOrder();
             });
 
             tabsEl.appendChild(tabEl);
           });
         };
+
+        tabsEl.addEventListener('dragover', (event) => {
+          if (!dragTabEl) return;
+          event.preventDefault();
+          const afterElement = getDragAfterElement(tabsEl, event.clientX);
+          if (afterElement == null) {
+            tabsEl.appendChild(dragTabEl);
+          } else if (afterElement !== dragTabEl) {
+            tabsEl.insertBefore(dragTabEl, afterElement);
+          }
+        });
+
+        tabsEl.addEventListener('drop', (event) => {
+          if (!dragTabEl) return;
+          event.preventDefault();
+          finalizeTabOrder();
+        });
 
         newTabBtn.addEventListener('click', () => {
           ipcRenderer.send('tabs-new');
@@ -549,10 +644,10 @@ function createWindow() {
         ipcRenderer.on('minimal-mode-changed', (event, enabled) => {
           if (enabled) {
             minimalToggle.classList.add('active');
-            minimalToggle.textContent = 'Minimal Mode';
+            minimalToggle.textContent = 'minimal mode';
           } else {
             minimalToggle.classList.remove('active');
-            minimalToggle.textContent = 'Normal Mode';
+            minimalToggle.textContent = 'normal mode';
           }
         });
 
@@ -597,6 +692,23 @@ function createWindow() {
     ipcMain.on('tabs-activate', (_event, tabId: number) => {
       if (typeof tabId !== 'number') return;
       setActiveTab(tabId);
+    });
+
+    ipcMain.on('tabs-reorder', (_event, tabOrder: number[]) => {
+      if (!Array.isArray(tabOrder) || tabOrder.length === 0) return;
+      const orderSet = new Set(tabOrder);
+      const reordered: Tab[] = [];
+      tabOrder.forEach((id) => {
+        const tab = getTabById(id);
+        if (tab) reordered.push(tab);
+      });
+      tabs.forEach((tab) => {
+        if (!orderSet.has(tab.id)) {
+          reordered.push(tab);
+        }
+      });
+      tabs = reordered;
+      sendTabsState();
     });
 
     ipcMain.on('nav-back', (event) => {

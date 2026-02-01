@@ -4,6 +4,7 @@ export interface ListItem {
   title: string;
   href: string;
   image?: string;
+  meta?: string;
 }
 
 export interface ShoppingItem {
@@ -101,7 +102,7 @@ export function renderListPage(data: ListPageData): string {
       type="text"
       class="boring-search"
       id="boring-search-input"
-      placeholder="Search..."
+      placeholder="search..."
     >
   ` : '';
 
@@ -109,12 +110,18 @@ export function renderListPage(data: ListPageData): string {
     const imageHTML = item.image ? `
       <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="boring-list-image">
     ` : '';
+    const metaHTML = item.meta ? `
+      <span class="boring-list-meta">${escapeHtml(item.meta)}</span>
+    ` : '';
 
     return `
       <li class="boring-list-item">
         <a href="${escapeHtml(item.href)}" class="boring-list-link">
           ${imageHTML}
-          <span class="boring-list-title">${escapeHtml(item.title)}</span>
+          <div class="boring-list-text">
+            <span class="boring-list-title">${escapeHtml(item.title)}</span>
+            ${metaHTML}
+          </div>
         </a>
       </li>
     `;
@@ -123,8 +130,8 @@ export function renderListPage(data: ListPageData): string {
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'List View'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'list view').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
       ${searchBoxHTML}
@@ -142,7 +149,7 @@ export function renderShoppingPage(data: ShoppingPageData): string {
       type="text"
       class="boring-search"
       id="boring-search-input"
-      placeholder="Search products..."
+      placeholder="search products..."
     >
   ` : '';
 
@@ -179,14 +186,14 @@ export function renderShoppingPage(data: ShoppingPageData): string {
           data-item-image="${escapeHtml(item.image || '')}"
           data-item-href="${escapeHtml(item.href)}"
         >
-          Add to basket
+          add to basket
         </button>
       </div>
     `;
   }).join('');
 
   const emptyHTML = data.items.length === 0
-    ? `<div class="boring-shopping-empty">No products found yet.</div>`
+    ? `<div class="boring-shopping-empty">no products found yet.</div>`
     : '';
 
   const checkoutUrl = data.checkoutUrl ? escapeHtml(data.checkoutUrl) : '';
@@ -194,26 +201,26 @@ export function renderShoppingPage(data: ShoppingPageData): string {
   return `
     <div class="boring-container boring-shopping">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'Shopping'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'shopping').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
       ${searchBoxHTML}
       <section class="boring-basket" data-checkout-url="${checkoutUrl}">
         <div class="boring-basket-header">
           <div>
-            <div class="boring-basket-title">Basket</div>
+            <div class="boring-basket-title">basket</div>
             <div class="boring-basket-meta">
               <span class="boring-basket-count">0</span> items ·
               <span class="boring-basket-total">—</span>
             </div>
           </div>
           <button class="boring-basket-checkout" data-action="checkout" data-checkout-url="${checkoutUrl}">
-            Checkout
+            checkout
           </button>
         </div>
         <div class="boring-basket-list"></div>
-        <div class="boring-basket-empty">Your basket is empty.</div>
+        <div class="boring-basket-empty">your basket is empty.</div>
       </section>
       <div class="boring-shopping-grid">
         ${itemsHTML}
@@ -229,7 +236,7 @@ export function renderNewsPage(data: NewsPageData): string {
       type="text"
       class="boring-search"
       id="boring-search-input"
-      placeholder="Search news..."
+      placeholder="search news..."
     >
   ` : '';
 
@@ -253,8 +260,8 @@ export function renderNewsPage(data: NewsPageData): string {
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'News'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'news').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
       ${searchBoxHTML}
@@ -273,8 +280,8 @@ export function renderArticlePage(data: ArticlePageData): string {
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'Article View'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'article view').toLowerCase()}</span>
       </div>
       <h1 class="boring-title">${escapeHtml(data.title)}</h1>
       ${bylineHTML}
@@ -289,8 +296,8 @@ export function renderVideoPage(data: VideoPageData): string {
   return `
     <div class="boring-container boring-video-only">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">${data.modeLabel || 'Video'}</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">${(data.modeLabel || 'video').toLowerCase()}</span>
       </div>
       <div class="boring-player-wrapper">
         ${data.playerHTML}
@@ -303,14 +310,14 @@ export function renderFallback(url: string): string {
   return `
     <div class="boring-container">
       <div class="boring-header">
-        <button class="boring-back-btn" data-action="back">← Back</button>
-        <span class="boring-mode-label">Fallback View</span>
+        <button class="boring-back-btn" data-action="back">← back</button>
+        <span class="boring-mode-label">fallback view</span>
       </div>
       <div class="boring-fallback">
-        <h2>Minimal view not available</h2>
-        <p>This page doesn't have a custom minimal view yet.</p>
+        <h2>minimal view not available</h2>
+        <p>this page doesn't have a custom minimal view yet.</p>
         <a href="${escapeHtml(url)}" class="boring-search-btn" data-action="reload">
-          Reload Original Page
+          reload original page
         </a>
       </div>
     </div>

@@ -9,7 +9,7 @@ export function extractGoogleSearch(doc: Document, url: string): ListPageData {
 
   // Get search query from URL
   const urlObj = new URL(url);
-  const query = urlObj.searchParams.get('q') || 'Search Results';
+  const query = urlObj.searchParams.get('q') || 'search results';
 
   // Find all h3 elements (Google uses h3 for result titles)
   const h3Elements = doc.querySelectorAll('h3');
@@ -68,12 +68,12 @@ export function extractGoogleSearch(doc: Document, url: string): ListPageData {
   });
 
   return {
-    title: `Search: ${query}`,
+    title: `search: ${query}`.toLowerCase(),
     items: items.length > 0 ? items : [{
       title: 'No results found - try a different search',
       href: 'https://www.google.com'
     }],
-    modeLabel: 'Google Search',
+    modeLabel: 'google search',
     searchBox: true
   };
 }

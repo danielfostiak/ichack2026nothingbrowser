@@ -9,11 +9,11 @@ function isTargetSite(url: URL): boolean {
 
 function extractExampleList(_doc: Document, url: URL): ListPageData {
   return {
-    title: `Example Site - ${url.hostname}`,
+    title: `example site - ${url.hostname}`.toLowerCase(),
     items: [
-      { title: 'Example item', href: url.toString() }
+      { title: 'example item', href: url.toString() }
     ],
-    modeLabel: 'Example List',
+    modeLabel: 'example list',
     searchBox: false
   };
 }

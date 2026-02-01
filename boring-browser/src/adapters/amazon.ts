@@ -210,7 +210,7 @@ export function extractAmazonProducts(doc: Document, url: URL): ShoppingPageData
   return {
     title: pageTitle.replace(/\s*Amazon\s*$/i, '').trim() || 'Amazon',
     items,
-    modeLabel: 'Shopping',
+    modeLabel: 'shopping',
     searchBox: true,
     checkoutUrl
   };

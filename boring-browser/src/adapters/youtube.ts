@@ -164,21 +164,54 @@ function getThumbnailFromRenderer(renderer: any): string | undefined {
   return thumbs[thumbs.length - 1]?.url;
 }
 
+function getDurationFromRenderer(renderer: any): string | null {
+  const lengthText = renderer.lengthText?.simpleText;
+  if (lengthText) return lengthText.trim();
+
+  const overlay = (renderer.thumbnailOverlays || []).find(
+    (item: any) => item?.thumbnailOverlayTimeStatusRenderer
+  );
+  const overlayText = overlay?.thumbnailOverlayTimeStatusRenderer?.text?.simpleText;
+  if (overlayText) return overlayText.trim();
+
+  const accessibility = renderer.lengthText?.accessibility?.accessibilityData?.label;
+  if (accessibility) return accessibility.trim();
+
+  return null;
+}
+
+function getChannelFromRenderer(renderer: any): string | null {
+  const byline =
+    renderer.longBylineText ||
+    renderer.shortBylineText ||
+    renderer.ownerText ||
+    renderer.channelName;
+
+  if (byline?.simpleText) return byline.simpleText.trim();
+  if (Array.isArray(byline?.runs)) {
+    const text = byline.runs.map((run: any) => run.text).join('');
+    return text.trim() || null;
+  }
+
+  return null;
+}
+
 export function extractYouTubeList(doc: Document, url: URL): ListPageData {
   const searchQuery = url.searchParams.get('search_query') || '';
-  const title = searchQuery ? `YouTube - ${searchQuery}` : 'YouTube';
+  const title = searchQuery ? `youtube - ${searchQuery}`.toLowerCase() : 'youtube';
 
   const data = extractInitialData(doc);
   const renderers = data ? collectVideoRenderers(data) : [];
   const items: ListItem[] = [];
   const seen = new Set<string>();
 
-  const pushItem = (videoId: string, itemTitle: string) => {
+  const pushItem = (videoId: string, itemTitle: string, meta?: string) => {
     if (!videoId || seen.has(videoId) || !itemTitle) return;
     seen.add(videoId);
     items.push({
       title: itemTitle,
-      href: `https://www.youtube.com/watch?v=${videoId}`
+      href: `https://www.youtube.com/watch?v=${videoId}`,
+      meta
     });
   };
 
@@ -186,7 +219,10 @@ export function extractYouTubeList(doc: Document, url: URL): ListPageData {
     const videoId = renderer.videoId;
     const titleText = getTitleFromRenderer(renderer);
     if (!videoId || !titleText) return;
-    pushItem(videoId, titleText);
+    const channel = getChannelFromRenderer(renderer);
+    const duration = getDurationFromRenderer(renderer);
+    const metaParts = [channel, duration].filter(Boolean);
+    pushItem(videoId, titleText, metaParts.length ? metaParts.join(' · ') : undefined);
   });
 
   if (items.length === 0) {
@@ -209,13 +245,21 @@ export function extractYouTubeList(doc: Document, url: URL): ListPageData {
         anchor.textContent?.trim() ||
         '';
 
-      pushItem(videoId, titleText);
+      const channel =
+        (node.querySelector('#channel-name a') as HTMLElement | null)?.textContent?.trim() ||
+        (node.querySelector('ytd-channel-name a') as HTMLElement | null)?.textContent?.trim() ||
+        '';
+      const duration =
+        (node.querySelector('span.ytd-thumbnail-overlay-time-status-renderer') as HTMLElement | null)
+          ?.textContent?.trim() || '';
+      const metaParts = [channel, duration].filter(Boolean);
+      pushItem(videoId, titleText, metaParts.length ? metaParts.join(' · ') : undefined);
     });
   }
 
   if (items.length === 0) {
     items.push({
-      title: 'No videos found yet — try searching above.',
+      title: 'no videos found yet — try searching above.',
       href: `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery || 'trending')}`
     });
   }
@@ -223,7 +267,7 @@ export function extractYouTubeList(doc: Document, url: URL): ListPageData {
   return {
     title,
     items,
-    modeLabel: 'Videos',
+    modeLabel: 'videos',
     searchBox: true
   };
 }
@@ -233,26 +277,26 @@ export function extractYouTubeWatch(doc: Document, url: URL): VideoPageData {
   const title =
     doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
     doc.title ||
-    'YouTube Video';
+    'youtube video';
 
   if (!videoId) {
     return {
-      title: 'Video unavailable',
-      playerHTML: '<div>Could not parse YouTube video ID.</div>',
-      modeLabel: 'Video'
+      title: 'video unavailable',
+      playerHTML: '<div>could not parse youtube video id.</div>',
+      modeLabel: 'video'
     };
   }
 
   const playerHTML = `
     <div id="boring-player-slot" data-video-id="${videoId}">
-      <div class="boring-video-placeholder">Loading video…</div>
+      <div class="boring-video-placeholder">loading video…</div>
     </div>
   `;
 
   return {
     title,
     playerHTML,
-    modeLabel: 'Video'
+    modeLabel: 'video'
   };
 }
 

@@ -44,9 +44,9 @@ export function extractBBCList(doc: Document): ListPageData {
   const limitedItems = items.slice(0, 30);
 
   return {
-    title: 'BBC News',
+    title: 'bbc news',
     items: limitedItems,
-    modeLabel: 'News List'
+    modeLabel: 'news list'
   };
 }
 
