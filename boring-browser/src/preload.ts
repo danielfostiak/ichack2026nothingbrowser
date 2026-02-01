@@ -568,7 +568,17 @@ async function performTransformation() {
     }
 
     const fastPath = (window as any).__boringFastPath as string | undefined;
+    const forceYouTubeEmbed = fastPath === 'youtube-watch';
     let youtubePlayer: HTMLElement | null = null;
+
+    if (forceYouTubeEmbed) {
+      try {
+        // Stop loading the full watch page to avoid hidden ad playback.
+        window.stop();
+      } catch {
+        // ignore
+      }
+    }
 
     if (fastPath !== 'youtube-watch') {
       // Wait for DOM to be ready
@@ -620,7 +630,7 @@ async function performTransformation() {
       console.log('[Boring Browser] Fast path enabled, skipping DOM wait');
     }
 
-    if (fastPath === 'youtube-watch') {
+    if (fastPath === 'youtube-watch' && !forceYouTubeEmbed) {
       const selectors = ['#movie_player', 'ytd-player', '#player'];
       for (const selector of selectors) {
         const el = document.querySelector(selector) as HTMLElement | null;
@@ -904,7 +914,7 @@ async function performTransformation() {
             } else {
               const videoId = slot.getAttribute('data-video-id');
               if (videoId) {
-                const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&origin=https://www.youtube.com`;
+                const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=1&origin=https://www.youtube.com`;
                 slot.innerHTML = `
                   <iframe
                     src="${embedUrl}"
