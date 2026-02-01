@@ -1,19 +1,248 @@
-import { app, BrowserWindow, BrowserView, ipcMain } from 'electron';
-import * as path from 'path';
+import { app, BrowserWindow, BrowserView, ipcMain, WebContents } from 'electron';
+import * as path from 'node:path';
 import { IPC_CHANNELS } from './ipc';
 
 let mainWindow: BrowserWindow | null = null;
-let browserView: BrowserView | null = null;
 let minimalModeEnabled = true;
 let cspStripperInstalled = false;
 let ipcHandlersInstalled = false;
+let chromeReady = false;
+
+type Tab = {
+  id: number;
+  view: BrowserView;
+  url: string;
+  title: string;
+  isLoading: boolean;
+};
+
+let tabs: Tab[] = [];
+let activeTabId: number | null = null;
+let nextTabId = 1;
+const tabByWebContentsId = new Map<number, Tab>();
 
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-const CHROME_HEIGHT = 60;
+const CHROME_HEIGHT = 96;
+
+const getActiveTab = (): Tab | null => {
+  if (activeTabId === null) return null;
+  return tabs.find((tab) => tab.id === activeTabId) || null;
+};
+
+const getTabById = (tabId: number): Tab | null => {
+  return tabs.find((tab) => tab.id === tabId) || null;
+};
+
+const getTabDisplayUrl = (tab: Tab): string => {
+  if (!tab.url) return '';
+  if (tab.url.startsWith('file://')) return '';
+  return tab.url;
+};
+
+const getTabDisplayTitle = (tab: Tab): string => {
+  if (tab.url.startsWith('file://')) {
+    return 'New Tab';
+  }
+  if (tab.title.trim()) {
+    return tab.title;
+  }
+  if (tab.url) {
+    try {
+      const host = new URL(tab.url).hostname.replace(/^www\./, '');
+      return host || tab.url;
+    } catch {
+      return tab.url;
+    }
+  }
+  return 'New Tab';
+};
+
+const sendToChrome = (channel: string, ...args: any[]) => {
+  if (!mainWindow || !chromeReady) return;
+  mainWindow.webContents.send(channel, ...args);
+};
+
+const sendTabsState = () => {
+  if (!mainWindow || !chromeReady) return;
+  const state = {
+    tabs: tabs.map((tab) => ({
+      id: tab.id,
+      title: getTabDisplayTitle(tab),
+      url: getTabDisplayUrl(tab),
+      isLoading: tab.isLoading
+    })),
+    activeTabId
+  };
+  mainWindow.webContents.send('tabs-updated', state);
+};
+
+const sendActiveUrl = () => {
+  const activeTab = getActiveTab();
+  sendToChrome('url-changed', activeTab ? getTabDisplayUrl(activeTab) : '');
+};
+
+const resolveTabFromSender = (sender: WebContents): Tab | null => {
+  const tab = tabByWebContentsId.get(sender.id);
+  return tab || getActiveTab();
+};
+
+const installCspStripper = (view: BrowserView) => {
+  if (cspStripperInstalled) return;
+  cspStripperInstalled = true;
+  const session = view.webContents.session;
+  session.webRequest.onHeadersReceived((details, callback) => {
+    const headers = details.responseHeaders || {};
+    const strippedHeaders: Record<string, string[] | string> = {};
+
+    Object.keys(headers).forEach((key) => {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey === 'content-security-policy' ||
+        lowerKey === 'content-security-policy-report-only' ||
+        lowerKey === 'x-webkit-csp'
+      ) {
+        return;
+      }
+      strippedHeaders[key] = headers[key] as string[] | string;
+    });
+
+    callback({ responseHeaders: strippedHeaders });
+  });
+};
+
+const attachTabListeners = (tab: Tab) => {
+  tab.view.webContents.on('did-start-loading', () => {
+    tab.isLoading = true;
+    sendTabsState();
+  });
+
+  tab.view.webContents.on('did-stop-loading', () => {
+    tab.isLoading = false;
+    tab.title = tab.view.webContents.getTitle();
+    sendTabsState();
+  });
+
+  tab.view.webContents.on('page-title-updated', (_event, title) => {
+    tab.title = title;
+    sendTabsState();
+  });
+
+  const handleNavigation = (url: string) => {
+    tab.url = url;
+    sendTabsState();
+    if (tab.id === activeTabId) {
+      sendActiveUrl();
+    }
+  };
+
+  tab.view.webContents.on('did-navigate', (_event, url) => {
+    handleNavigation(url);
+  });
+
+  tab.view.webContents.on('did-navigate-in-page', (_event, url) => {
+    handleNavigation(url);
+  });
+
+  tab.view.webContents.on('console-message', (_event, _level, message) => {
+    console.log(`[Tab ${tab.id} Console] ${message}`);
+  });
+
+  tab.view.webContents.on('preload-error', (_event, preloadPath, error) => {
+    console.error(`[Tab ${tab.id} Preload Error]`, preloadPath, error);
+  });
+};
+
+const createTab = (initialUrl?: string): Tab => {
+  const view = new BrowserView({
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: false, // Must be false to manipulate page DOM
+      sandbox: false,
+      nodeIntegration: true // Needed for preload to use node modules
+    }
+  });
+
+  installCspStripper(view);
+
+  // Use a standard Chrome UA to avoid Google "sorry" blocks
+  view.webContents.setUserAgent(DEFAULT_USER_AGENT);
+
+  // Set dark background to prevent white flash
+  view.setBackgroundColor('#0b0b0c');
+
+  const tab: Tab = {
+    id: nextTabId++,
+    view,
+    url: '',
+    title: '',
+    isLoading: false
+  };
+
+  tabByWebContentsId.set(view.webContents.id, tab);
+  tabs.push(tab);
+
+  attachTabListeners(tab);
+
+  if (initialUrl) {
+    view.webContents.loadURL(initialUrl);
+  } else {
+    const homepagePath = path.join(__dirname, 'homepage.html');
+    view.webContents.loadFile(homepagePath);
+  }
+
+  return tab;
+};
+
+const setActiveTab = (tabId: number) => {
+  if (!mainWindow) return;
+  const tab = getTabById(tabId);
+  if (!tab) return;
+  activeTabId = tabId;
+  mainWindow.setBrowserView(tab.view);
+  updateBrowserViewBounds();
+  tab.view.webContents.focus();
+  sendTabsState();
+  sendActiveUrl();
+};
+
+const closeTab = (tabId: number) => {
+  const index = tabs.findIndex((tab) => tab.id === tabId);
+  if (index === -1) return;
+
+  const tab = tabs[index];
+  const wasActive = tabId === activeTabId;
+  const nextTabId =
+    wasActive && tabs.length > 1
+      ? (tabs[index - 1]?.id ?? tabs[index + 1]?.id ?? null)
+      : activeTabId;
+
+  tabs.splice(index, 1);
+  tabByWebContentsId.delete(tab.view.webContents.id);
+
+  if (wasActive) {
+    if (nextTabId !== null && nextTabId !== tabId) {
+      setActiveTab(nextTabId);
+    } else if (tabs.length === 0) {
+      const newTab = createTab();
+      setActiveTab(newTab.id);
+    }
+  } else {
+    sendTabsState();
+  }
+
+  tab.view.webContents.destroy();
+};
+
+const reloadAllTabs = () => {
+  tabs.forEach((tab) => {
+    tab.view.webContents.reloadIgnoringCache();
+  });
+};
 
 function createWindow() {
+  chromeReady = false;
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 1000,
@@ -38,9 +267,9 @@ function createWindow() {
           color: #e0e0e0;
           height: ${CHROME_HEIGHT}px;
           display: flex;
-          align-items: center;
-          padding: 0 12px;
-          gap: 8px;
+          flex-direction: column;
+          gap: 6px;
+          padding: 8px 12px;
           -webkit-app-region: drag;
         }
         button {
@@ -60,6 +289,59 @@ function createWindow() {
           background: #007acc;
           border-color: #007acc;
         }
+        .tabbar {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .tabs {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex: 1;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab {
+          -webkit-app-region: no-drag;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          max-width: 220px;
+          background: #2a2a2c;
+          border: 1px solid #3a3a3c;
+          color: #e0e0e0;
+          padding: 6px 10px;
+          border-radius: 6px;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .tab.active {
+          background: #353538;
+          border-color: #4a4a4c;
+        }
+        .tab-title {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 150px;
+        }
+        .tab-close {
+          -webkit-app-region: no-drag;
+          background: transparent;
+          border: none;
+          color: #aaa;
+          padding: 0 4px;
+          cursor: pointer;
+          font-size: 12px;
+          line-height: 1;
+        }
+        .tab-close:hover { color: #fff; }
+        #new-tab {
+          padding: 4px 10px;
+          font-weight: 600;
+        }
         input {
           -webkit-app-region: no-drag;
           flex: 1;
@@ -73,24 +355,71 @@ function createWindow() {
         }
         input:focus { border-color: #007acc; }
         .nav-group { display: flex; gap: 4px; }
+        .toolbar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
       </style>
     </head>
     <body>
-      <div class="nav-group">
-        <button id="back" title="Back">←</button>
-        <button id="forward" title="Forward">→</button>
-        <button id="refresh" title="Refresh">⟳</button>
+      <div class="tabbar">
+        <div id="tabs" class="tabs"></div>
+        <button id="new-tab" title="New Tab">+</button>
       </div>
-      <input type="text" id="url" placeholder="Enter URL...">
-      <button id="minimal-toggle" class="active">Minimal Mode</button>
+      <div class="toolbar">
+        <div class="nav-group">
+          <button id="back" title="Back">←</button>
+          <button id="forward" title="Forward">→</button>
+          <button id="refresh" title="Refresh">⟳</button>
+        </div>
+        <input type="text" id="url" placeholder="Enter URL...">
+        <button id="minimal-toggle" class="active">Minimal Mode</button>
+      </div>
       <script>
         const { ipcRenderer } = require('electron');
 
+        const tabsEl = document.getElementById('tabs');
+        const newTabBtn = document.getElementById('new-tab');
         const backBtn = document.getElementById('back');
         const forwardBtn = document.getElementById('forward');
         const refreshBtn = document.getElementById('refresh');
         const urlInput = document.getElementById('url');
         const minimalToggle = document.getElementById('minimal-toggle');
+
+        const renderTabs = (tabs, activeTabId) => {
+          tabsEl.innerHTML = '';
+          tabs.forEach(tab => {
+            const tabEl = document.createElement('div');
+            tabEl.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+            tabEl.setAttribute('data-tab-id', String(tab.id));
+
+            const titleEl = document.createElement('span');
+            titleEl.className = 'tab-title';
+            titleEl.textContent = tab.title || 'New Tab';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'tab-close';
+            closeBtn.textContent = '×';
+            closeBtn.title = 'Close Tab';
+            closeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              ipcRenderer.send('tabs-close', tab.id);
+            });
+
+            tabEl.appendChild(titleEl);
+            tabEl.appendChild(closeBtn);
+            tabEl.addEventListener('click', () => {
+              ipcRenderer.send('tabs-activate', tab.id);
+            });
+
+            tabsEl.appendChild(tabEl);
+          });
+        };
+
+        newTabBtn.addEventListener('click', () => {
+          ipcRenderer.send('tabs-new');
+        });
 
         backBtn.addEventListener('click', () => ipcRenderer.send('nav-back'));
         forwardBtn.addEventListener('click', () => ipcRenderer.send('nav-forward'));
@@ -149,8 +478,19 @@ function createWindow() {
           ipcRenderer.send('toggle-minimal');
         });
 
+        ipcRenderer.on('tabs-updated', (event, state) => {
+          if (!state || !Array.isArray(state.tabs)) return;
+          renderTabs(state.tabs, state.activeTabId);
+          const activeTab = state.tabs.find(tab => tab.id === state.activeTabId);
+          if (activeTab && document.activeElement !== urlInput) {
+            urlInput.value = activeTab.url || '';
+          }
+        });
+
         ipcRenderer.on('url-changed', (event, url) => {
-          urlInput.value = url;
+          if (document.activeElement !== urlInput) {
+            urlInput.value = url;
+          }
         });
 
         ipcRenderer.on('minimal-mode-changed', (event, enabled) => {
@@ -162,6 +502,8 @@ function createWindow() {
             minimalToggle.textContent = 'Normal Mode';
           }
         });
+
+        ipcRenderer.send('chrome-ready');
       </script>
     </body>
     </html>
@@ -169,47 +511,8 @@ function createWindow() {
 
   mainWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(chromeHTML));
 
-  // Create BrowserView
-  browserView = new BrowserView({
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: false, // Must be false to manipulate page DOM
-      sandbox: false,
-      nodeIntegration: true, // Needed for preload to use node modules
-    }
-  });
-
-  if (!cspStripperInstalled) {
-    cspStripperInstalled = true;
-    const session = browserView.webContents.session;
-    session.webRequest.onHeadersReceived((details, callback) => {
-      const headers = details.responseHeaders || {};
-      const strippedHeaders: Record<string, string[] | string> = {};
-
-      Object.keys(headers).forEach((key) => {
-        const lowerKey = key.toLowerCase();
-        if (
-          lowerKey === 'content-security-policy' ||
-          lowerKey === 'content-security-policy-report-only' ||
-          lowerKey === 'x-webkit-csp'
-        ) {
-          return;
-        }
-        strippedHeaders[key] = headers[key] as string[] | string;
-      });
-
-      callback({ responseHeaders: strippedHeaders });
-    });
-  }
-
-  // Use a standard Chrome UA to avoid Google "sorry" blocks
-  browserView.webContents.setUserAgent(DEFAULT_USER_AGENT);
-
-  // Set dark background to prevent white flash
-  browserView.setBackgroundColor('#0b0b0c');
-
-  mainWindow.setBrowserView(browserView);
-  updateBrowserViewBounds();
+  const initialTab = createTab();
+  setActiveTab(initialTab.id);
 
   // Handle window resize
   mainWindow.on('resize', updateBrowserViewBounds);
@@ -221,96 +524,106 @@ function createWindow() {
   if (!ipcHandlersInstalled) {
     ipcHandlersInstalled = true;
 
-    ipcMain.on('nav-back', () => {
-      if (browserView && browserView.webContents.canGoBack()) {
-        browserView.webContents.goBack();
+    ipcMain.on('chrome-ready', () => {
+      chromeReady = true;
+      sendTabsState();
+      sendActiveUrl();
+      sendToChrome('minimal-mode-changed', minimalModeEnabled);
+    });
+
+    ipcMain.on('tabs-new', () => {
+      const tab = createTab();
+      setActiveTab(tab.id);
+    });
+
+    ipcMain.on('tabs-close', (_event, tabId: number) => {
+      if (typeof tabId !== 'number') return;
+      closeTab(tabId);
+    });
+
+    ipcMain.on('tabs-activate', (_event, tabId: number) => {
+      if (typeof tabId !== 'number') return;
+      setActiveTab(tabId);
+    });
+
+    ipcMain.on('nav-back', (event) => {
+      const tab = resolveTabFromSender(event.sender);
+      const webContents = tab?.view.webContents;
+      if (webContents?.canGoBack()) {
+        webContents.goBack();
       }
     });
 
-    ipcMain.on('nav-forward', () => {
-      if (browserView && browserView.webContents.canGoForward()) {
-        browserView.webContents.goForward();
+    ipcMain.on('nav-forward', (event) => {
+      const tab = resolveTabFromSender(event.sender);
+      const webContents = tab?.view.webContents;
+      if (webContents?.canGoForward()) {
+        webContents.goForward();
       }
     });
 
-    ipcMain.on('nav-refresh', () => {
-      if (browserView) {
-        browserView.webContents.reload();
+    ipcMain.on('nav-refresh', (event) => {
+      const tab = resolveTabFromSender(event.sender);
+      if (tab) {
+        tab.view.webContents.reload();
       }
     });
 
     ipcMain.on('nav-to', (event, url: string) => {
-      if (browserView) {
-        browserView.webContents.loadURL(url);
+      let tab = resolveTabFromSender(event.sender);
+      if (!tab) {
+        tab = createTab();
+        setActiveTab(tab.id);
       }
+      tab.view.webContents.loadURL(url);
     });
 
     ipcMain.on('toggle-minimal', () => {
       minimalModeEnabled = !minimalModeEnabled;
-      mainWindow?.webContents.send('minimal-mode-changed', minimalModeEnabled);
-      if (browserView) {
-        browserView.webContents.reloadIgnoringCache();
-      }
-    });
-  }
-
-  // Track URL changes
-  if (browserView) {
-    browserView.webContents.on('did-navigate', (event, url) => {
-      // Hide file:// URLs (homepage) - show empty URL bar instead
-      const displayUrl = url.startsWith('file://') ? '' : url;
-      mainWindow?.webContents.send('url-changed', displayUrl);
-    });
-
-    browserView.webContents.on('did-navigate-in-page', (event, url) => {
-      // Hide file:// URLs (homepage) - show empty URL bar instead
-      const displayUrl = url.startsWith('file://') ? '' : url;
-      mainWindow?.webContents.send('url-changed', displayUrl);
+      sendToChrome('minimal-mode-changed', minimalModeEnabled);
+      reloadAllTabs();
     });
   }
 
   // Open DevTools only when explicitly requested
   if (process.env.BORING_DEVTOOLS === '1') {
-    browserView.webContents.openDevTools({ mode: 'detach' });
+    const activeTab = getActiveTab();
+    if (activeTab) {
+      activeTab.view.webContents.openDevTools({ mode: 'detach' });
+    }
   }
-
-  // Forward console logs from BrowserView to terminal
-  browserView.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`[BrowserView Console] ${message}`);
-  });
-
-  // Log preload errors
-  browserView.webContents.on('preload-error', (event, preloadPath, error) => {
-    console.error('[Preload Error]', preloadPath, error);
-  });
 
   // Keyboard shortcut to toggle DevTools
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F12' || (input.key === 'i' && input.meta && input.alt)) {
-      if (browserView) {
-        if (browserView.webContents.isDevToolsOpened()) {
-          browserView.webContents.closeDevTools();
+      const activeTab = getActiveTab();
+      if (activeTab) {
+        if (activeTab.view.webContents.isDevToolsOpened()) {
+          activeTab.view.webContents.closeDevTools();
         } else {
-          browserView.webContents.openDevTools({ mode: 'detach' });
+          activeTab.view.webContents.openDevTools({ mode: 'detach' });
         }
       }
     }
   });
 
-  // Load initial page (homepage)
-  const homepagePath = path.join(__dirname, 'homepage.html');
-  browserView.webContents.loadFile(homepagePath);
-
   mainWindow.on('closed', () => {
+    tabs.forEach((tab) => {
+      tab.view.webContents.destroy();
+    });
+    tabs = [];
+    activeTabId = null;
+    tabByWebContentsId.clear();
+    chromeReady = false;
     mainWindow = null;
-    browserView = null;
   });
 }
 
 function updateBrowserViewBounds() {
-  if (mainWindow && browserView) {
+  const activeTab = getActiveTab();
+  if (mainWindow && activeTab) {
     const bounds = mainWindow.getBounds();
-    browserView.setBounds({
+    activeTab.view.setBounds({
       x: 0,
       y: CHROME_HEIGHT,
       width: bounds.width,
@@ -330,7 +643,8 @@ ipcMain.on(IPC_CHANNELS.GET_MINIMAL_MODE_SYNC, (event) => {
 
 ipcMain.on(IPC_CHANNELS.SET_MINIMAL_MODE, (event, enabled: boolean) => {
   minimalModeEnabled = !!enabled;
-  mainWindow?.webContents.send('minimal-mode-changed', minimalModeEnabled);
+  sendToChrome('minimal-mode-changed', minimalModeEnabled);
+  reloadAllTabs();
 });
 
 ipcMain.on(IPC_CHANNELS.LOG, (event, ...args) => {
